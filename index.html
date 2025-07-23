@@ -1,1033 +1,4 @@
-.submit-page.active {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        .submit-card {
-            background: rgba(248, 250, 252, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(15, 23, 42, 0.1);
-            backdrop-filter: blur(15px);
-            max-width: 400px;
-            width: 100%;
-        }
-
-        .submit-page h2 {
-            margin-bottom: 30px;
-            color: white;
-            font-size: 28px;
-            font-weight: 700;
-        }
-
-        .submit-page input {
-            padding: 15px 20px;
-            font-size: 18px;
-            border: 1px solid rgba(226, 232, 240, 0.3);
-            border-radius: 12px;
-            width: 100%;
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
-            background: rgba(248, 250, 252, 0.95);
-            color: #1e293b;
-        }
-
-        .submit-page input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .submit-page button {
-            padding: 15px 40px;
-            font-size: 18px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .submit-page button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        }
-
-        .loading-indicator {
-            display: none;
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(248, 250, 252, 0.95);
-            padding: 10px 15px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(15, 23, 42, 0.15);
-            font-size: 14px;
-            color: #3b82f6;
-            font-weight: 500;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(226, 232, 240, 0.3);
-        }
-
-        .loading-indicator.active {
-            display: block;
-        }
-
-        .error-message {
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-size: 13px;
-            border: 1px solid #fecaca;
-        }
-
-        .success-message {
-            background: #dcfce7;
-            color: #16a34a;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-size: 13px;
-            border: 1px solid #bbf7d0;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-            }
-            
-            .sidebar {
-                width: 100%;
-                height: auto;
-                max-height: 45vh;
-            }
-
-            .controls button {
-                font-size: 12px;
-                padding: 8px 12px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="qr-section">
-                <h3>📱 QR코드로 단어 입력</h3>
-                <div class="qr-code" id="qrcode"></div>
-                <p style="font-size: 12px; color: #666;">학생들이 QR코드를 스캔하여 단어를 입력할 수 있습니다</p>
-            </div>
-
-            <div class="word-input">
-                <h3>✏️ 직접 단어 입력</h3>
-                <input type="text" id="wordInput" placeholder="단어를 입력하세요" onkeypress="if(event.key==='Enter') addWord()">
-                <button onclick="addWord()" id="addWordBtn">단어 추가</button>
-            </div>
-
-            <div class="ai-status">
-                <div class="ai-status-title">🤖 실제 AI 상태</div>
-                <div class="ai-status-content" id="aiStatus">
-                    KoSentenceBERT + OpenAI GPT 연동<br>
-                    API 서버 연결을 확인하세요
-                </div>
-            </div>
-
-            <div class="controls">
-                <h3>🎛️ 실제 AI 제어</h3>
-                <button class="btn-primary" onclick="performRealClustering()" id="clusterBtn">실제 AI 군집화</button>
-                <button class="btn-secondary" onclick="generateRealLabels()" id="labelBtn">GPT 라벨링</button>
-                <button class="btn-success" onclick="updateAllConnections()" id="connectionBtn">연결 재분석</button>
-                <button class="btn-success" onclick="autoCluster()" id="autoBtn">자동 모드</button>
-                <button class="btn-warning" onclick="clearGraph()">초기화</button>
-            </div>
-
-            <div class="stats">
-                <h3>📊 실시간 통계</h3>
-                <div class="stat-item">
-                    <span>총 단어:</span>
-                    <span class="stat-value" id="totalWords">0</span>
-                </div>
-                <div class="stat-item">
-                    <span>고유 단어:</span>
-                    <span class="stat-value" id="uniqueWords">0</span>
-                </div>
-                <div class="stat-item">
-                    <span>AI 클러스터:</span>
-                    <span class="stat-value" id="totalClusters">0</span>
-                </div>
-                <div class="stat-item">
-                    <span>연결성:</span>
-                    <span class="stat-value" id="connectivity">0%</span>
-                </div>
-                <div class="stat-item">
-                    <span>실루엣 점수:</span>
-                    <span class="stat-value" id="silhouetteScore">-</span>
-                </div>
-            </div>
-
-            <div class="clusters">
-                <h3>🎯 GPT 생성 클러스터</h3>
-                <div id="clustersContainer">
-                    <p style="color: #999; font-size: 13px; text-align: center;">단어를 추가하고 AI 군집화를 실행하세요</p>
-                </div>
-            </div>
-
-            <div class="word-list">
-                <h3>📝 단어 목록</h3>
-                <div id="wordListContainer">
-                    <p style="color: #999; font-size: 13px; text-align: center;">아직 단어가 없습니다</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="header">
-                <h1>🧠 실시간 한국어 단어 연관 그래프 - 실제 AI</h1>
-                <p>KoSentenceBERT 벡터 임베딩 + OpenAI GPT 하이브리드 분석 | 실제 K-means 클러스터링</p>
-            </div>
-            
-            <div class="graph-container">
-                <div id="network"></div>
-                <div class="loading-indicator" id="loadingIndicator">
-                    🤖 실제 AI 분석 중...
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Submit Page (for QR code access) -->
-    <div class="submit-page" id="submitPage">
-        <div class="submit-card">
-            <h2>💬 단어 입력</h2>
-            <input type="text" id="submitInput" placeholder="단어를 입력하세요" onkeypress="if(event.key==='Enter') submitWord()">
-            <button onclick="submitWord()">실제 AI에 전송</button>
-            <p style="margin-top: 20px; font-size: 14px; color: #666;">
-                입력한 단어는 실제 AI가 분석하여<br>실시간 그래프에 반영됩니다
-            </p>
-        </div>
-    </div>
-
-    <script>
-        // 전역 변수
-        let words = new Map();
-        let wordVectors = new Map();
-        let nodes, edges, network;
-        let clusters = [];
-        let clusterLabels = new Map();
-        let sessionId = Math.random().toString(36).substr(2, 9);
-        let autoClusterInterval = null;
-        let isProcessing = false;
-        let apiBaseUrl = 'http://localhost:8000'; // 개발환경 기본값
-        let silhouetteScore = 0;
-
-        // 전역 함수들 (HTML에서 직접 호출)
-        function addWord() {
-            const input = document.getElementById('wordInput');
-            const word = input.value.trim();
-            
-            if (word) {
-                addWordToGraph(word);
-                input.value = '';
-            }
-        }
-
-        function submitWord() {
-            const input = document.getElementById('submitInput');
-            const word = input.value.trim();
-            
-            if (word) {
-                const existingWords = JSON.parse(localStorage.getItem('submittedWords') || '[]');
-                existingWords.push({ word, timestamp: Date.now() });
-                localStorage.setItem('submittedWords', JSON.stringify(existingWords));
-                
-                alert('단어가 제출되었습니다!');
-                input.value = '';
-            }
-        }
-
-        // 실제 AI를 사용한 클러스터링
-        async function performRealClustering() {
-            if (words.size < 3) {
-                alert('클러스터링하려면 최소 3개 이상의 단어가 필요합니다.');
-                return;
-            }
-            
-            const clusterBtn = document.getElementById('clusterBtn');
-            clusterBtn.disabled = true;
-            showLoading(true);
-            updateAIStatus('실제 K-means 클러스터링 실행 중...');
-            
-            try {
-                const wordArray = Array.from(words.keys());
-                
-                const response = await fetch(`${apiBaseUrl}/api/clustering`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        words: wordArray,
-                        num_clusters: Math.min(Math.ceil(words.size / 3), 6)
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`API 오류: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                clusters = data.cluster_assignments;
-                silhouetteScore = data.silhouette_score;
-                
-                // 클러스터별 색상 및 공간 배치
-                const clusterColors = [
-                    '#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', 
-                    '#64748b', '#06b6d4', '#10b981', '#84cc16'
-                ];
-                
-                // 클러스터별 공간 배치 (원형으로 분산)
-                const numClusters = Math.max(...clusters) + 1;
-                const clusterCenters = [];
-                for (let i = 0; i < numClusters; i++) {
-                    const angle = (2 * Math.PI * i) / numClusters;
-                    const radius = 300;
-                    clusterCenters.push({
-                        x: Math.cos(angle) * radius,
-                        y: Math.sin(angle) * radius
-                    });
-                }
-                
-                wordArray.forEach((word, index) => {
-                    const clusterId = clusters[index];
-                    const color = clusterColors[clusterId % clusterColors.length];
-                    const center = clusterCenters[clusterId];
-                    
-                    // 클러스터 중심 주변에 노드 배치
-                    const randomOffset = {
-                        x: center.x + (Math.random() - 0.5) * 150,
-                        y: center.y + (Math.random() - 0.5) * 150
-                    };
-                    
-                    nodes.update({
-                        id: word,
-                        color: {
-                            background: color,
-                            border: color,
-                            highlight: { background: color, border: '#1e293b' }
-                        },
-                        x: randomOffset.x,
-                        y: randomOffset.y
-                    });
-                    
-                    words.get(word).cluster = clusterId;
-                });
-                
-                updateClusterDisplay();
-                updateStats();
-                updateAIStatus(`실제 K-means 완료 (실루엣 점수: ${silhouetteScore.toFixed(3)}) - GPT 라벨링 준비`);
-                
-                // 자동 라벨링 실행
-                setTimeout(() => generateRealLabels(), 1000);
-                
-            } catch (error) {
-                console.error('실제 클러스터링 오류:', error);
-                updateAIStatus(`클러스터링 실패: ${error.message} - 시뮬레이션으로 진행`);
-                
-                // 실패시 기본 클러스터링
-                performFallbackClustering();
-            } finally {
-                clusterBtn.disabled = false;
-                showLoading(false);
-            }
-        }
-
-        // 실제 GPT를 사용한 라벨 생성
-        async function generateRealLabels() {
-            const labelBtn = document.getElementById('labelBtn');
-            labelBtn.disabled = true;
-            showLoading(true);
-            updateAIStatus('OpenAI GPT로 클러스터 라벨 생성 중...');
-            
-            try {
-                const clusterMap = new Map();
-                
-                for (const [word, data] of words) {
-                    if (data.cluster !== -1) {
-                        if (!clusterMap.has(data.cluster)) {
-                            clusterMap.set(data.cluster, []);
-                        }
-                        clusterMap.get(data.cluster).push(word);
-                    }
-                }
-                
-                // 각 클러스터에 대해 실제 GPT로 라벨 생성
-                for (const [clusterId, wordsInCluster] of clusterMap) {
-                    try {
-                        const response = await fetch(`${apiBaseUrl}/api/generate-labels`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                words: wordsInCluster
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            clusterLabels.set(clusterId, data.label);
-                        } else {
-                            // API 실패시 기본 라벨
-                            clusterLabels.set(clusterId, `📊 그룹 ${clusterId + 1}`);
-                        }
-                    } catch (error) {
-                        console.error(`클러스터 ${clusterId} 라벨링 실패:`, error);
-                        clusterLabels.set(clusterId, `📊 그룹 ${clusterId + 1}`);
-                    }
-                }
-                
-                updateClusterDisplay();
-                updateAIStatus(`OpenAI GPT 라벨링 완료 - ${clusterMap.size}개 클러스터 분석됨`);
-                
-            } catch (error) {
-                console.error('GPT 라벨링 오류:', error);
-                updateAIStatus(`GPT 라벨링 실패: ${error.message}`);
-            } finally {
-                labelBtn.disabled = false;
-                showLoading(false);
-            }
-        }
-
-        // 자동 클러스터링 토글
-        function autoCluster() {
-            const button = document.getElementById('autoBtn');
-            if (autoClusterInterval) {
-                clearInterval(autoClusterInterval);
-                autoClusterInterval = null;
-                button.textContent = '자동 모드';
-                button.classList.remove('btn-warning');
-                button.classList.add('btn-success');
-                updateAIStatus('자동 모드 비활성화됨');
-            } else {
-                autoClusterInterval = setInterval(async () => {
-                    if (words.size >= 3) {
-                        await performRealClustering();
-                    }
-                }, 10000); // 10초마다
-                button.textContent = '자동 중지';
-                button.classList.remove('btn-success');
-                button.classList.add('btn-warning');
-                updateAIStatus('자동 모드 활성화 - 10초마다 실제 AI 분석');
-            }
-        }
-
-        function clearGraph() {
-            if (confirm('그래프를 초기화하시겠습니까?')) {
-                words.clear();
-                wordVectors.clear();
-                clusters = [];
-                clusterLabels.clear();
-                silhouetteScore = 0;
-                nodes.clear();
-                edges.clear();
-                
-                if (autoClusterInterval) {
-                    clearInterval(autoClusterInterval);
-                    autoClusterInterval = null;
-                    const autoBtn = document.getElementById('autoBtn');
-                    autoBtn.textContent = '자동 모드';
-                    autoBtn.classList.remove('btn-warning');
-                    autoBtn.classList.add('btn-success');
-                }
-                
-                updateStats();
-                updateWordList();
-                updateClusterDisplay();
-                updateAIStatus('그래프가 초기화되었습니다');
-                localStorage.removeItem('submittedWords');
-            }
-        }
-
-        // 실제 API를 사용한 하이브리드 유사도 계산
-        async function calculateRealSimilarity(word1, word2) {
-            try {
-                const response = await fetch(`${apiBaseUrl}/api/hybrid-similarity`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        word1: word1,
-                        word2: word2
-                    })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    return {
-                        similarity: data.hybrid_score,
-                        vector: data.vector_similarity,
-                        llm: data.llm_similarity,
-                        confidence: data.confidence
-                    };
-                }
-            } catch (error) {
-                console.error('실제 유사도 계산 실패:', error);
-            }
-            
-            // 실패시 기본 유사도
-            return { 
-                similarity: 0.3, 
-                vector: 0.3, 
-                llm: 0.3, 
-                confidence: 'low' 
-            };
-        }
-
-        // 모든 단어 간 연결 업데이트 (클러스터링 후)
-        async function updateAllConnections() {
-            if (words.size < 2) return;
-            
-            showLoading(true);
-            updateAIStatus('모든 단어 간 연관도 재계산 중...');
-            
-            try {
-                const wordArray = Array.from(words.keys());
-                const connections = [];
-                
-                // 모든 단어 쌍에 대해 유사도 계산
-                for (let i = 0; i < wordArray.length; i++) {
-                    for (let j = i + 1; j < wordArray.length; j++) {
-                        const result = await calculateRealSimilarity(wordArray[i], wordArray[j]);
-                        
-                        if (result.similarity > 0.3) { // 임계값 이상만 연결
-                            connections.push({
-                                from: wordArray[i],
-                                to: wordArray[j],
-                                similarity: result.similarity,
-                                confidence: result.confidence
-                            });
-                        }
-                    }
-                }
-                
-                // 기존 엣지 제거 후 새로운 연결 추가
-                edges.clear();
-                
-                connections.forEach(conn => {
-                    const edgeWidth = Math.max(1, Math.min(8, conn.similarity * 10));
-                    
-                    let edgeColor;
-                    if (conn.similarity >= 0.8) {
-                        edgeColor = '#dc2626'; // 매우 강한 연관성
-                    } else if (conn.similarity >= 0.6) {
-                        edgeColor = '#ea580c'; // 강한 연관성
-                    } else if (conn.similarity >= 0.4) {
-                        edgeColor = '#3b82f6'; // 보통 연관성
-                    } else {
-                        edgeColor = '#64748b'; // 약한 연관성
-                    }
-                    
-                    edges.add({
-                        id: `${conn.from}-${conn.to}`,
-                        from: conn.from,
-                        to: conn.to,
-                        label: `${(conn.similarity * 100).toFixed(1)}%`,
-                        width: edgeWidth,
-                        value: conn.similarity * 10,
-                        color: { 
-                            color: edgeColor, 
-                            opacity: 0.8,
-                            highlight: edgeColor,
-                            hover: '#3b82f6'
-                        },
-                        font: {
-                            size: Math.max(10, Math.min(14, edgeWidth + 8)),
-                            color: edgeColor,
-                            strokeWidth: 2,
-                            strokeColor: '#ffffff'
-                        },
-                        title: `연관도: ${(conn.similarity * 100).toFixed(1)}% (${conn.confidence} 신뢰도)`,
-                        smooth: {
-                            type: conn.similarity > 0.7 ? 'straightCross' : 'continuous'
-                        }
-                    });
-                });
-                
-                updateStats();
-                updateAIStatus(`${connections.length}개 연결 업데이트 완료`);
-                
-            } catch (error) {
-                console.error('연결 업데이트 실패:', error);
-                updateAIStatus(`연결 업데이트 실패: ${error.message}`);
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // 가장 유사한 단어 찾기 (실제 API 사용)
-        async function findMostSimilarWord(word) {
-            if (words.size === 0) return null;
-            
-            let maxSimilarity = -1;
-            let mostSimilarWord = null;
-            
-            for (const [existingWord] of words) {
-                const result = await calculateRealSimilarity(word, existingWord);
-                
-                if (result.similarity > maxSimilarity) {
-                    maxSimilarity = result.similarity;
-                    mostSimilarWord = existingWord;
-                }
-            }
-            
-            return { word: mostSimilarWord, similarity: maxSimilarity };
-        }
-
-        // 단어 추가 (실제 API 사용)
-        async function addWordToGraph(word) {
-            if (!word || word.trim() === '') return;
-            
-            word = word.trim();
-            const addBtn = document.getElementById('addWordBtn');
-            addBtn.disabled = true;
-            showLoading(true);
-            
-            try {
-                if (words.has(word)) {
-                    // 기존 단어 - 크기 증가
-                    const data = words.get(word);
-                    data.count++;
-                    data.size = Math.min(15 + data.count * 3, 50);
-                    
-                    nodes.update({
-                        id: word,
-                        size: data.size,
-                        title: `${word} (${data.count}회)`
-                    });
-                } else {
-                    // 새로운 단어 - 실제 API로 벡터화
-                    updateAIStatus(`"${word}" 실제 벡터화 중...`);
-                    
-                    try {
-                        const vectorResponse = await fetch(`${apiBaseUrl}/api/vectorize`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ word: word })
-                        });
-                        
-                        if (vectorResponse.ok) {
-                            const vectorData = await vectorResponse.json();
-                            wordVectors.set(word, vectorData.vector);
-                            updateAIStatus(`"${word}" KoSentenceBERT 벡터화 완료 (${vectorData.vector_dim}차원)`);
-                        }
-                    } catch (error) {
-                        console.error('벡터화 실패:', error);
-                    }
-                    
-                    // 가장 유사한 단어 찾기 (실제 하이브리드 분석)
-                    const mostSimilar = await findMostSimilarWord(word);
-                    const newWordData = { count: 1, size: 18, cluster: -1 };
-                    
-                    words.set(word, newWordData);
-                    
-                    // 노드 추가
-                    const colors = [
-                        '#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', 
-                        '#64748b', '#06b6d4', '#10b981', '#84cc16'
-                    ];
-                    const color = colors[Math.floor(Math.random() * colors.length)];
-                    
-                    nodes.add({
-                        id: word,
-                        label: word,
-                        size: 18,
-                        color: color,
-                        title: `${word} (1회)`,
-                        font: { color: '#1e293b' }
-                    });
-                    
-                    // 가장 유사한 단어와 연결
-                    if (mostSimilar && mostSimilar.similarity > 0.3) {
-                        // 유사도에 따른 엣지 굵기 계산 (1-8 범위)
-                        const edgeWidth = Math.max(1, Math.min(8, mostSimilar.similarity * 10));
-                        
-                        // 유사도에 따른 엣지 색상 강도
-                        let edgeColor;
-                        if (mostSimilar.similarity >= 0.8) {
-                            edgeColor = '#dc2626'; // 매우 강한 연관성 - 빨간색
-                        } else if (mostSimilar.similarity >= 0.6) {
-                            edgeColor = '#ea580c'; // 강한 연관성 - 주황색
-                        } else if (mostSimilar.similarity >= 0.4) {
-                            edgeColor = '#3b82f6'; // 보통 연관성 - 파란색
-                        } else {
-                            edgeColor = '#64748b'; // 약한 연관성 - 회색
-                        }
-                        
-                        edges.add({
-                            id: `${mostSimilar.word}-${word}`,
-                            from: mostSimilar.word,
-                            to: word,
-                            label: `${(mostSimilar.similarity * 100).toFixed(1)}%`,
-                            width: edgeWidth,
-                            value: mostSimilar.similarity * 10, // vis.js 자동 스케일링용
-                            color: { 
-                                color: edgeColor, 
-                                opacity: 0.8,
-                                highlight: edgeColor,
-                                hover: '#3b82f6'
-                            },
-                            font: {
-                                size: Math.max(10, Math.min(14, edgeWidth + 8)),
-                                color: edgeColor,
-                                strokeWidth: 2,
-                                strokeColor: '#ffffff'
-                            },
-                            title: `연관도: ${(mostSimilar.similarity * 100).toFixed(1)}% (${mostSimilar.confidence || 'medium'} 신뢰도)`,
-                            smooth: {
-                                type: mostSimilar.similarity > 0.7 ? 'straightCross' : 'continuous'
-                            }
-                        });
-                        
-                        updateAIStatus(`새 연결: "${word}" ↔ "${mostSimilar.word}" (${(mostSimilar.similarity * 100).toFixed(1)}%)`);
-                    }
-                }
-                
-                updateStats();
-                updateWordList();
-                updateAIStatus(`새 단어 "${word}" 추가 완료`);
-                
-            } catch (error) {
-                console.error('단어 추가 중 오류:', error);
-                updateAIStatus(`단어 추가 실패: ${error.message}`);
-            } finally {
-                addBtn.disabled = false;
-                showLoading(false);
-            }
-        }
-
-        // 네트워크 초기화
-        function initNetwork() {
-            nodes = new vis.DataSet([]);
-            edges = new vis.DataSet([]);
-            
-            const container = document.getElementById('network');
-            const data = { nodes: nodes, edges: edges };
-            const options = {
-                nodes: {
-                    shape: 'dot',
-                    size: 15,
-                    font: {
-                        size: 14,
-                        color: '#1e293b',
-                        face: 'Arial'
-                    },
-                    borderWidth: 2,
-                    shadow: {
-                        enabled: true,
-                        color: 'rgba(0,0,0,0.1)',
-                        size: 4
-                    }
-                },
-                edges: {
-                    color: { 
-                        color: '#64748b', 
-                        opacity: 0.8 
-                    },
-                    smooth: {
-                        type: 'continuous',
-                        forceDirection: 'none',
-                        roundness: 0.1
-                    },
-                    font: {
-                        size: 11,
-                        color: '#475569',
-                        strokeWidth: 2,
-                        strokeColor: '#ffffff'
-                    },
-                    scaling: {
-                        min: 1,
-                        max: 8
-                    }
-                },
-                physics: {
-                    enabled: true,
-                    stabilization: { iterations: 100 },
-                    barnesHut: {
-                        gravitationalConstant: -8000,
-                        springConstant: 0.001,
-                        springLength: 200,
-                        damping: 0.09
-                    }
-                },
-                interaction: {
-                    hover: true,
-                    tooltipDelay: 300,
-                    hoverConnectedEdges: true
-                }
-            };
-            
-            network = new vis.Network(container, data, options);
-            
-            // 엣지 호버 이벤트
-            network.on("hoverEdge", function (params) {
-                const edgeId = params.edge;
-                const edge = edges.get(edgeId);
-                if (edge) {
-                    // 호버시 엣지 하이라이트
-                    edges.update({
-                        id: edgeId,
-                        color: { color: '#3b82f6', opacity: 1.0 }
-                    });
-                }
-            });
-            
-            network.on("blurEdge", function (params) {
-                const edgeId = params.edge;
-                const edge = edges.get(edgeId);
-                if (edge) {
-                    // 호버 해제시 원래 색상으로
-                    edges.update({
-                        id: edgeId,
-                        color: { color: '#64748b', opacity: 0.8 }
-                    });
-                }
-            });
-        }
-
-        // 폴백 클러스터링 (API 실패시)
-        function performFallbackClustering() {
-            // 기본 시뮬레이션 클러스터링 로직
-            const wordArray = Array.from(words.keys());
-            clusters = wordArray.map((_, index) => index % 3); // 간단한 분할
-            
-            // 시각적 업데이트
-            const clusterColors = ['#3b82f6', '#6366f1', '#0ea5e9'];
-            wordArray.forEach((word, index) => {
-                const clusterId = clusters[index];
-                const color = clusterColors[clusterId % clusterColors.length];
-                
-                nodes.update({
-                    id: word,
-                    color: {
-                        background: color,
-                        border: color,
-                        highlight: { background: color, border: '#1e293b' }
-                    }
-                });
-                
-                words.get(word).cluster = clusterId;
-            });
-            
-            updateClusterDisplay();
-            updateStats();
-        }
-
-        // 유틸리티 함수들
-        function showLoading(show) {
-            const indicator = document.getElementById('loadingIndicator');
-            if (show) {
-                indicator.classList.add('active');
-            } else {
-                indicator.classList.remove('active');
-            }
-        }
-
-        function updateAIStatus(message) {
-            const statusContent = document.getElementById('aiStatus');
-            const timestamp = new Date().toLocaleTimeString();
-            statusContent.innerHTML = `
-                <strong>${timestamp}</strong><br>
-                ${message}<br>
-                <small>실제 KoSentenceBERT + OpenAI GPT</small>
-            `;
-        }
-
-        // 통계 업데이트
-        function updateStats() {
-            const totalCount = Array.from(words.values()).reduce((sum, data) => sum + data.count, 0);
-            const connectionCount = edges.length;
-            const connectivity = words.size > 0 ? Math.round((connectionCount / Math.max(words.size - 1, 1)) * 100) : 0;
-            
-            document.getElementById('totalWords').textContent = totalCount;
-            document.getElementById('uniqueWords').textContent = words.size;
-            document.getElementById('totalClusters').textContent = new Set(Array.from(words.values()).map(d => d.cluster).filter(c => c !== -1)).size;
-            document.getElementById('connectivity').textContent = connectivity + '%';
-            document.getElementById('silhouetteScore').textContent = silhouetteScore > 0 ? silhouetteScore.toFixed(3) : '-';
-        }
-
-        // 단어 목록 업데이트
-        function updateWordList() {
-            const container = document.getElementById('wordListContainer');
-            
-            if (words.size === 0) {
-                container.innerHTML = '<p style="color: #64748b; font-size: 13px; text-align: center;">아직 단어가 없습니다</p>';
-                return;
-            }
-            
-            container.innerHTML = '';
-            const sortedWords = Array.from(words.entries()).sort((a, b) => b[1].count - a[1].count);
-            
-            sortedWords.forEach(([word, data]) => {
-                const item = document.createElement('div');
-                item.className = 'word-item';
-                item.innerHTML = `
-                    <span style="color: #1e293b;">${word}</span>
-                    <span class="word-count">${data.count}</span>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        // 클러스터 표시 업데이트
-        function updateClusterDisplay() {
-            const container = document.getElementById('clustersContainer');
-            
-            const clusterMap = new Map();
-            for (const [word, data] of words) {
-                if (data.cluster !== -1) {
-                    if (!clusterMap.has(data.cluster)) {
-                        clusterMap.set(data.cluster, []);
-                    }
-                    clusterMap.get(data.cluster).push(word);
-                }
-            }
-            
-            if (clusterMap.size === 0) {
-                container.innerHTML = '<p style="color: #64748b; font-size: 13px; text-align: center;">단어를 추가하고 AI 군집화를 실행하세요</p>';
-                return;
-            }
-            
-            container.innerHTML = '';
-            
-            for (const [clusterId, wordsInCluster] of clusterMap) {
-                const clusterDiv = document.createElement('div');
-                clusterDiv.className = 'cluster';
-                
-                const label = clusterLabels.get(clusterId) || `클러스터 ${clusterId + 1}`;
-                const avgCount = wordsInCluster.reduce((sum, word) => sum + words.get(word).count, 0) / wordsInCluster.length;
-                
-                const colors = ['#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', '#64748b', '#06b6d4', '#10b981', '#84cc16'];
-                const borderColor = colors[clusterId % colors.length];
-                
-                clusterDiv.style.borderLeftColor = borderColor;
-                clusterDiv.innerHTML = `
-                    <div class="cluster-title">
-                        <span style="margin-right: 8px;">${label.includes('�') ? '📊' : ''}</span>
-                        ${label}
-                    </div>
-                    <div class="cluster-words">${wordsInCluster.join(', ')}</div>
-                    <div class="cluster-stats">
-                        ${wordsInCluster.length}개 단어 | 평균 빈도: ${avgCount.toFixed(1)}
-                        ${silhouetteScore > 0 ? ` | 품질: ${silhouetteScore.toFixed(3)}` : ''}
-                    </div>
-                `;
-                container.appendChild(clusterDiv);
-            }
-        }
-
-        // 제출된 단어 확인
-        function checkSubmittedWords() {
-            const submitted = JSON.parse(localStorage.getItem('submittedWords') || '[]');
-            const lastCheck = parseInt(localStorage.getItem('lastWordCheck') || '0');
-            
-            const newWords = submitted.filter(item => item.timestamp > lastCheck);
-            
-            if (newWords.length > 0) {
-                newWords.forEach(item => {
-                    addWordToGraph(item.word);
-                });
-                localStorage.setItem('lastWordCheck', Date.now().toString());
-            }
-        }
-
-        // QR코드 생성
-        function generateQR() {
-            const url = `${window.location.origin}${window.location.pathname}?mode=submit&session=${sessionId}`;
-            QRCode.toCanvas(document.getElementById('qrcode'), url, { 
-                width: 150,
-                margin: 2,
-                color: {
-                    dark: '#1e293b',
-                    light: '#ffffff'
-                }
-            }, function (error) {
-                if (error) console.error(error);
-            });
-        }
-
-        // URL 파라미터 확인 (QR 접속)
-        function checkMode() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const mode = urlParams.get('mode');
-            
-            if (mode === 'submit') {
-                document.querySelector('.container').style.display = 'none';
-                document.getElementById('submitPage').classList.add('active');
-            }
-        }
-
-        // 초기화 및 이벤트 리스너
-        document.addEventListener('DOMContentLoaded', function() {
-            checkMode();
-            
-            if (window.location.search.includes('mode=submit')) {
-                // 제출 페이지
-                return;
-            }
-            
-            initNetwork();
-            generateQR();
-            updateAIStatus('실제 AI 시스템 준비완료');
-            
-            // 자동으로 API 연결 상태 확인
-            checkApiHealth();
-            
-            // 주기적으로 제출된 단어 확인
-            setInterval(checkSubmittedWords, 2000);
-            
-            // 샘플 데이터 추가 (API 연결 후)
-        // API 상태 자동 확인
-        async function checkApiHealth() {
-            try {
-                const response = await fetch(`${apiBaseUrl}/api/health`);
-                const data = await response.json();
-                
-                if (data.status === 'healthy') {
-                    updateAIStatus(`API 연결됨 - 모델: ${data.model_loaded ? '✅' : '❌'} | OpenAI: ${data.openai_available ? '✅' : '❌'}`);
-                } else {
-                    updateAIStatus('API 서버 응답 이상 - 백엔드 확인 필요');
-                }
-            } catch (error) {
-                updateAIStatus('API 서버 미연결 - 로컬 시뮬레이션 모드');
-                console.log('API 서버가 실행되지 않음:', error.message);
-            }
-        }
-            // 샘플 데이터 추가 (API 상태 확인 후)
-            setTimeout(() => {
-                const sampleWords = ['강아지', '고양이', '축구'];
-                let delay = 1000;
-                sampleWords.forEach(word => {
-                    setTimeout(() => addWordToGraph(word), delay);
-                    delay += 2000;
-                });
-            }, 2000);
-        });
-    </script>
-</body>
-</html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -1058,6 +29,7 @@
             width: 320px;
             background: rgba(248, 250, 252, 0.95);
             padding: 20px;
+            padding-top: 180px; /* QR 고정 공간 확보 */
             box-shadow: 2px 0 25px rgba(15, 23, 42, 0.1);
             overflow-y: auto;
             backdrop-filter: blur(15px);
@@ -1104,65 +76,78 @@
             border-radius: 15px;
         }
 
-        .api-config {
+        .qr-fixed {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(248, 250, 252, 0.95);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.15);
+            backdrop-filter: blur(15px);
+            text-align: center;
+            min-width: 180px;
+        }
+
+        .qr-fixed h3 {
+            color: #475569;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .qr-code {
+            margin: 10px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .queue-status {
+            margin-top: 8px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            color: #64748b;
+        }
+
+        .word-queue {
             background: linear-gradient(135deg, #fef3c7, #fde68a);
             padding: 15px;
             border-radius: 12px;
             margin-bottom: 20px;
             border: 1px solid #f59e0b;
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
         }
 
-        .api-config h3 {
+        .word-queue h3 {
             color: #92400e;
             margin-bottom: 10px;
             font-size: 14px;
             font-weight: 600;
         }
 
-        .api-config input {
-            width: 100%;
+        .queue-item {
+            background: rgba(255, 255, 255, 0.8);
             padding: 8px 12px;
-            border: 1px solid #d97706;
-            border-radius: 8px;
-            font-size: 13px;
-            background: #ffffff;
-            margin-bottom: 8px;
-        }
-
-        .api-config button {
-            width: 100%;
-            padding: 8px;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        .qr-section {
-            text-align: center;
-            margin-bottom: 25px;
-            padding: 20px;
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-            border-radius: 16px;
-            border: 1px solid rgba(226, 232, 240, 0.5);
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .qr-section h3 {
-            color: #475569;
-            margin-bottom: 15px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .qr-code {
-            margin: 15px 0;
+            margin: 4px 0;
+            border-radius: 6px;
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .queue-item.processing {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            border: 1px solid #3b82f6;
+        }
+
+        .queue-time {
+            color: #64748b;
+            font-size: 11px;
         }
 
         .word-input {
@@ -1212,7 +197,7 @@
             transition: all 0.3s ease;
         }
 
-        .word-input button:hover {
+        .word-input button:hover:not(:disabled) {
             transform: translateY(-1px);
             box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
             background: linear-gradient(135deg, #2563eb, #1d4ed8);
@@ -1456,4 +441,1449 @@
         }
 
         .submit-page.active {
-            display: flex
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .submit-card {
+            background: rgba(248, 250, 252, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(15, 23, 42, 0.1);
+            backdrop-filter: blur(15px);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .submit-page h2 {
+            margin-bottom: 30px;
+            color: white;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .submit-page input {
+            padding: 15px 20px;
+            font-size: 18px;
+            border: 1px solid rgba(226, 232, 240, 0.3);
+            border-radius: 12px;
+            width: 100%;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            background: rgba(248, 250, 252, 0.95);
+            color: #1e293b;
+        }
+
+        .submit-page input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .submit-page button {
+            padding: 15px 40px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .submit-page button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        }
+
+        .loading-indicator {
+            display: none;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(248, 250, 252, 0.95);
+            padding: 10px 15px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(15, 23, 42, 0.15);
+            font-size: 14px;
+            color: #3b82f6;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.3);
+        }
+
+        .loading-indicator.active {
+            display: block;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 13px;
+            border: 1px solid #fecaca;
+        }
+
+        .success-message {
+            background: #dcfce7;
+            color: #16a34a;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 13px;
+            border: 1px solid #bbf7d0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 45vh;
+                padding-top: 20px;
+            }
+
+            .qr-fixed {
+                position: relative;
+                top: auto;
+                left: auto;
+                margin-bottom: 20px;
+            }
+
+            .controls button {
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- QR 코드를 화면 상단 좌측에 고정 -->
+            <div class="qr-fixed">
+                <h3>📱 학생 입력 QR</h3>
+                <div class="qr-code" id="qrcode"></div>
+                <p style="font-size: 11px; color: #666;">QR 스캔 → 단어 입력</p>
+                <div class="queue-status">
+                    <span id="queueCount">대기: 0개</span>
+                    <span id="processingStatus">🟢 대기중</span>
+                </div>
+            </div>
+
+            <div class="word-queue">
+                <h3>⏰ 실시간 단어 대기열</h3>
+                <div id="wordQueue">
+                    <p style="color: #92400e; font-size: 12px; text-align: center;">학생 입력 대기 중...</p>
+                </div>
+            </div>
+
+            <div class="word-input">
+                <h3>✏️ 교사 직접 입력</h3>
+                <input type="text" id="wordInput" placeholder="단어를 입력하세요" onkeypress="if(event.key==='Enter') addWord()">
+                <button onclick="addWord()" id="addWordBtn">단어 추가</button>
+            </div>
+
+            <div class="ai-status">
+                <div class="ai-status-title">🤖 실제 AI 상태</div>
+                <div class="ai-status-content" id="aiStatus">
+                    KoSentenceBERT + OpenAI GPT 연동<br>
+                    API 서버 연결을 확인하세요
+                </div>
+            </div>
+
+            <div class="controls">
+                <h3>🎛️ 실제 AI 제어</h3>
+                <button class="btn-primary" onclick="performRealClustering()" id="clusterBtn">실제 AI 군집화</button>
+                <button class="btn-secondary" onclick="generateRealLabels()" id="labelBtn">GPT 라벨링</button>
+                <button class="btn-success" onclick="updateAllConnections()" id="connectionBtn">연결 재분석</button>
+                <button class="btn-success" onclick="autoCluster()" id="autoBtn">자동 모드</button>
+                <button class="btn-warning" onclick="clearGraph()">초기화</button>
+            </div>
+
+            <div class="stats">
+                <h3>📊 실시간 통계</h3>
+                <div class="stat-item">
+                    <span>총 단어:</span>
+                    <span class="stat-value" id="totalWords">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>고유 단어:</span>
+                    <span class="stat-value" id="uniqueWords">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>AI 클러스터:</span>
+                    <span class="stat-value" id="totalClusters">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>연결성:</span>
+                    <span class="stat-value" id="connectivity">0%</span>
+                </div>
+                <div class="stat-item">
+                    <span>실루엣 점수:</span>
+                    <span class="stat-value" id="silhouetteScore">-</span>
+                </div>
+            </div>
+
+            <div class="clusters">
+                <h3>🎯 GPT 생성 클러스터</h3>
+                <div id="clustersContainer">
+                    <p style="color: #999; font-size: 13px; text-align: center;">단어를 추가하고 AI 군집화를 실행하세요</p>
+                </div>
+            </div>
+
+            <div class="word-list">
+                <h3>📝 단어 목록</h3>
+                <div id="wordListContainer">
+                    <p style="color: #999; font-size: 13px; text-align: center;">아직 단어가 없습니다</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h1>🧠 실시간 한국어 단어 연관 그래프 - 실제 AI</h1>
+                <p>KoSentenceBERT 벡터 임베딩 + OpenAI GPT 하이브리드 분석 | 실제 K-means 클러스터링</p>
+            </div>
+            
+            <div class="graph-container">
+                <div id="network"></div>
+                <div class="loading-indicator" id="loadingIndicator">
+                    🤖 실제 AI 분석 중...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Page (for QR code access) -->
+    <div class="submit-page" id="submitPage">
+        <div class="submit-card">
+            <h2>💬 단어 입력</h2>
+            <input type="text" id="submitInput" placeholder="단어를 입력하세요" onkeypress="if(event.key==='Enter') submitWord()">
+            <button onclick="submitWord()">실제 AI에 전송</button>
+            <p style="margin-top: 20px; font-size: 14px; color: #666;">
+                입력한 단어는 실제 AI가 분석하여<br>실시간 그래프에 반영됩니다
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let words = new Map();
+        let wordVectors = new Map();
+        let nodes, edges, network;
+        let clusters = [];
+        let clusterLabels = new Map();
+        let sessionId = Math.random().toString(36).substr(2, 9);
+        let autoClusterInterval = null;
+        let isProcessing = false;
+        let isProcessingQueue = false;
+        let wordQueue = [];
+        let apiBaseUrl = 'http://localhost:8000'; // 개발환경 기본값
+        let silhouetteScore = 0;
+        let wordSimilarityCache = new Map();
+
+        // 전역 함수들 (HTML에서 직접 호출)
+        function addWord() {
+            const input = document.getElementById('wordInput');
+            const word = input.value.trim();
+            
+            if (word) {
+                addWordToGraph(word);
+                input.value = '';
+            }
+        }
+
+        // QR 제출 페이지 함수
+        function submitWord() {
+            const input = document.getElementById('submitInput');
+            const word = input.value.trim();
+            
+            if (!word) return;
+            
+            // 로컬 스토리지에 큐 방식으로 저장
+            const submission = {
+                word: word,
+                timestamp: Date.now(),
+                sessionId: sessionId
+            };
+            
+            const queue = JSON.parse(localStorage.getItem('wordQueue') || '[]');
+            queue.push(submission);
+            localStorage.setItem('wordQueue', JSON.stringify(queue));
+            
+            input.value = '';
+            
+            // 성공 메시지
+            const card = document.querySelector('.submit-card');
+            const successMsg = document.createElement('div');
+            successMsg.className = 'success-message';
+            successMsg.textContent = `"${word}" 단어가 전송되었습니다!`;
+            card.appendChild(successMsg);
+            
+            setTimeout(() => {
+                if (successMsg.parentNode) {
+                    successMsg.parentNode.removeChild(successMsg);
+                }
+            }, 3000);
+        }
+
+        // 교사 화면 - 우선순위 큐 처리
+        function processWordQueue() {
+            if (isProcessingQueue || wordQueue.length === 0) return;
+            
+            isProcessingQueue = true;
+            updateQueueStatus('🔄 처리중');
+            
+            // 힙큐에서 가장 빠른 시간의 단어 추출
+            const nextSubmission = wordQueue.shift(); // 가장 오래된 것부터 처리
+            
+            if (nextSubmission) {
+                // 큐 UI 업데이트
+                updateQueueDisplay();
+                
+                // 단어를 그래프에 추가
+                addWordToGraph(nextSubmission.word);
+                
+                // 처리 완료 후 다음 단어 처리
+                setTimeout(() => {
+                    isProcessingQueue = false;
+                    updateQueueStatus('🟢 대기중');
+                    
+                    // 다음 단어가 있으면 계속 처리
+                    if (wordQueue.length > 0) {
+                        setTimeout(processWordQueue, 500); // 0.5초 간격으로 처리
+                    }
+                }, 1000);
+            } else {
+                isProcessingQueue = false;
+                updateQueueStatus('🟢 대기중');
+            }
+        }
+
+        // 로컬 스토리지에서 큐 체크 (주기적)
+        function checkLocalQueue() {
+            const storedQueue = JSON.parse(localStorage.getItem('wordQueue') || '[]');
+            const lastProcessed = parseInt(localStorage.getItem('lastProcessedTime') || '0');
+            
+            // 새로운 제출만 처리
+            const newSubmissions = storedQueue.filter(item => item.timestamp > lastProcessed);
+            
+            if (newSubmissions.length > 0) {
+                // 시간순으로 정렬 (빠른 것부터)
+                newSubmissions.sort((a, b) => a.timestamp - b.timestamp);
+                
+                // 큐에 추가
+                newSubmissions.forEach(submission => {
+                    wordQueue.push(submission);
+                });
+                
+                updateQueueDisplay();
+                
+                // 마지막 처리 시간 업데이트
+                const latestTime = Math.max(...newSubmissions.map(s => s.timestamp));
+                localStorage.setItem('lastProcessedTime', latestTime.toString());
+                
+                // 큐 처리 시작
+                if (!isProcessingQueue) {
+                    processWordQueue();
+                }
+            }
+        }
+
+        // 큐 상태 업데이트
+        function updateQueueStatus(status) {
+            const statusEl = document.getElementById('processingStatus');
+            if (statusEl) {
+                statusEl.textContent = status;
+            }
+        }
+
+        // 큐 디스플레이 업데이트
+        function updateQueueDisplay() {
+            const queueEl = document.getElementById('wordQueue');
+            const countEl = document.getElementById('queueCount');
+            
+            if (countEl) {
+                countEl.textContent = `대기: ${wordQueue.length}개`;
+            }
+            
+            if (queueEl) {
+                if (wordQueue.length === 0) {
+                    queueEl.innerHTML = '<p style="color: #92400e; font-size: 12px; text-align: center;">학생 입력 대기 중...</p>';
+                } else {
+                    queueEl.innerHTML = '';
+                    
+                    // 최대 5개까지만 표시
+                    const displayQueue = wordQueue.slice(0, 5);
+                    
+                    displayQueue.forEach((submission, index) => {
+                        const item = document.createElement('div');
+                        item.className = index === 0 ? 'queue-item processing' : 'queue-item';
+                        
+                        const timeStr = new Date(submission.timestamp).toLocaleTimeString();
+                        const waitTime = Math.round((Date.now() - submission.timestamp) / 1000);
+                        
+                        item.innerHTML = `
+                            <span>${submission.word}</span>
+                            <div class="queue-time">
+                                ${timeStr}<br>
+                                <small>${waitTime}초 전</small>
+                            </div>
+                        `;
+                        
+                        queueEl.appendChild(item);
+                    });
+                    
+                    if (wordQueue.length > 5) {
+                        const moreItem = document.createElement('div');
+                        moreItem.style.cssText = 'text-align: center; color: #64748b; font-size: 11px; padding: 5px;';
+                        moreItem.textContent = `+${wordQueue.length - 5}개 더...`;
+                        queueEl.appendChild(moreItem);
+                    }
+                }
+            }
+        }
+
+        // 실제 AI를 사용한 클러스터링
+        async function performRealClustering() {
+            if (words.size < 3) {
+                alert('클러스터링하려면 최소 3개 이상의 단어가 필요합니다.');
+                return;
+            }
+            
+            const clusterBtn = document.getElementById('clusterBtn');
+            clusterBtn.disabled = true;
+            showLoading(true);
+            updateAIStatus('실제 K-means 클러스터링 실행 중...');
+            
+            try {
+                const wordArray = Array.from(words.keys());
+                
+                const response = await fetch(`${apiBaseUrl}/api/clustering`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        words: wordArray,
+                        num_clusters: Math.min(Math.ceil(words.size / 3), 6)
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API 오류: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                clusters = data.cluster_assignments;
+                silhouetteScore = data.silhouette_score;
+                
+                // 클러스터별 색상 및 공간 배치
+                const clusterColors = [
+                    '#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', 
+                    '#64748b', '#06b6d4', '#10b981', '#84cc16'
+                ];
+                
+                // 클러스터별 공간 배치 (원형으로 분산)
+                const numClusters = Math.max(...clusters) + 1;
+                const clusterCenters = [];
+                for (let i = 0; i < numClusters; i++) {
+                    const angle = (2 * Math.PI * i) / numClusters;
+                    const radius = 300;
+                    clusterCenters.push({
+                        x: Math.cos(angle) * radius,
+                        y: Math.sin(angle) * radius
+                    });
+                }
+                
+                wordArray.forEach((word, index) => {
+                    const clusterId = clusters[index];
+                    const color = clusterColors[clusterId % clusterColors.length];
+                    const center = clusterCenters[clusterId];
+                    
+                    // 클러스터 중심 주변에 노드 배치
+                    const randomOffset = {
+                        x: center.x + (Math.random() - 0.5) * 150,
+                        y: center.y + (Math.random() - 0.5) * 150
+                    };
+                    
+                    nodes.update({
+                        id: word,
+                        color: {
+                            background: color,
+                            border: color,
+                            highlight: { background: color, border: '#1e293b' }
+                        },
+                        x: randomOffset.x,
+                        y: randomOffset.y
+                    });
+                    
+                    words.get(word).cluster = clusterId;
+                });
+                
+                updateClusterDisplay();
+                updateStats();
+                updateAIStatus(`실제 K-means 완료 (실루엣 점수: ${silhouetteScore.toFixed(3)}) - GPT 라벨링 준비`);
+                
+                // 자동 라벨링 실행
+                setTimeout(() => generateRealLabels(), 1000);
+                
+            } catch (error) {
+                console.error('실제 클러스터링 오류:', error);
+                updateAIStatus(`클러스터링 실패: ${error.message} - 시뮬레이션으로 진행`);
+                
+                // 실패시 기본 클러스터링
+                performFallbackClustering();
+            } finally {
+                clusterBtn.disabled = false;
+                showLoading(false);
+            }
+        }
+
+        // 실제 GPT를 사용한 라벨 생성
+        async function generateRealLabels() {
+            const labelBtn = document.getElementById('labelBtn');
+            labelBtn.disabled = true;
+            showLoading(true);
+            updateAIStatus('OpenAI GPT로 클러스터 라벨 생성 중...');
+            
+            try {
+                const clusterMap = new Map();
+                
+                for (const [word, data] of words) {
+                    if (data.cluster !== -1) {
+                        if (!clusterMap.has(data.cluster)) {
+                            clusterMap.set(data.cluster, []);
+                        }
+                        clusterMap.get(data.cluster).push(word);
+                    }
+                }
+                
+                // 각 클러스터에 대해 실제 GPT로 라벨 생성
+                for (const [clusterId, wordsInCluster] of clusterMap) {
+                    try {
+                        const response = await fetch(`${apiBaseUrl}/api/generate-labels`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                words: wordsInCluster
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            clusterLabels.set(clusterId, data.label);
+                        } else {
+                            // API 실패시 기본 라벨
+                            clusterLabels.set(clusterId, `📊 그룹 ${clusterId + 1}`);
+                        }
+                    } catch (error) {
+                        console.error(`클러스터 ${clusterId} 라벨링 실패:`, error);
+                        clusterLabels.set(clusterId, `📊 그룹 ${clusterId + 1}`);
+                    }
+                }
+                
+                updateClusterDisplay();
+                updateAIStatus(`OpenAI GPT 라벨링 완료 - ${clusterMap.size}개 클러스터 분석됨`);
+                
+            } catch (error) {
+                console.error('GPT 라벨링 오류:', error);
+                updateAIStatus(`GPT 라벨링 실패: ${error.message}`);
+            } finally {
+                labelBtn.disabled = false;
+                showLoading(false);
+            }
+        }
+
+        // 자동 클러스터링 토글
+        function autoCluster() {
+            const button = document.getElementById('autoBtn');
+            if (autoClusterInterval) {
+                clearInterval(autoClusterInterval);
+                autoClusterInterval = null;
+                button.textContent = '자동 모드';
+                button.classList.remove('btn-warning');
+                button.classList.add('btn-success');
+                updateAIStatus('자동 모드 비활성화됨');
+            } else {
+                autoClusterInterval = setInterval(async () => {
+                    if (words.size >= 3) {
+                        await performRealClustering();
+                    }
+                }, 10000); // 10초마다
+                button.textContent = '자동 중지';
+                button.classList.remove('btn-success');
+                button.classList.add('btn-warning');
+                updateAIStatus('자동 모드 활성화 - 10초마다 실제 AI 분석');
+            }
+        }
+
+        function clearGraph() {
+            if (confirm('그래프를 초기화하시겠습니까?')) {
+                words.clear();
+                wordVectors.clear();
+                clusters = [];
+                clusterLabels.clear();
+                silhouetteScore = 0;
+                wordQueue = [];
+                nodes.clear();
+                edges.clear();
+                
+                if (autoClusterInterval) {
+                    clearInterval(autoClusterInterval);
+                    autoClusterInterval = null;
+                    const autoBtn = document.getElementById('autoBtn');
+                    autoBtn.textContent = '자동 모드';
+                    autoBtn.classList.remove('btn-warning');
+                    autoBtn.classList.add('btn-success');
+                }
+                
+                updateStats();
+                updateWordList();
+                updateClusterDisplay();
+                updateQueueDisplay();
+                updateAIStatus('그래프가 초기화되었습니다');
+                localStorage.removeItem('wordQueue');
+                localStorage.removeItem('lastProcessedTime');
+            }
+        }
+
+        // 모든 단어 간 연결 업데이트 (가장 유사한 것만)
+        async function updateAllConnections() {
+            if (words.size < 2) return;
+            
+            showLoading(true);
+            updateAIStatus('단어별 최고 연관도 계산 중...');
+            
+            try {
+                const wordArray = Array.from(words.keys());
+                
+                // 기존 엣지 제거
+                edges.clear();
+                
+                // 각 단어에 대해 가장 유사한 단어 하나씩만 연결
+                for (const word of wordArray) {
+                    let maxSimilarity = -1;
+                    let mostSimilarWord = null;
+                    
+                    for (const otherWord of wordArray) {
+                        if (word === otherWord) continue;
+                        
+                        let similarity;
+                        try {
+                            // API 사용 시도
+                            const result = await calculateRealSimilarity(word, otherWord);
+                            similarity = result.similarity;
+                        } catch (error) {
+                            // API 실패시 기본 계산
+                            if (wordVectors.has(word) && wordVectors.has(otherWord)) {
+                                similarity = calculateVectorSimilarity(word, otherWord);
+                            } else {
+                                similarity = calculateBasicSimilarity(word, otherWord);
+                            }
+                        }
+                        
+                        if (similarity > maxSimilarity) {
+                            maxSimilarity = similarity;
+                            mostSimilarWord = otherWord;
+                        }
+                    }
+                    
+                    // 임계값 이상이고 가장 유사한 단어와 연결
+                    if (mostSimilarWord && maxSimilarity > 0.3) {
+                        const edgeId = `${word}-${mostSimilarWord}`;
+                        const reverseEdgeId = `${mostSimilarWord}-${word}`;
+                        
+                        // 중복 연결 방지
+                        if (!edges.get(edgeId) && !edges.get(reverseEdgeId)) {
+                            addEdgeWithSimilarity(word, mostSimilarWord, maxSimilarity, 'high');
+                        }
+                    }
+                }
+                
+                updateStats();
+                updateAIStatus(`${edges.length}개 최적 연결 생성 완료`);
+                
+            } catch (error) {
+                console.error('연결 업데이트 실패:', error);
+                updateAIStatus(`연결 업데이트 실패: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 실제 API를 사용한 하이브리드 유사도 계산
+        async function calculateRealSimilarity(word1, word2) {
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/hybrid-similarity`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        word1: word1,
+                        word2: word2
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return {
+                        similarity: data.hybrid_score,
+                        vector: data.vector_similarity,
+                        llm: data.llm_similarity,
+                        confidence: data.confidence
+                    };
+                }
+            } catch (error) {
+                console.error('실제 유사도 계산 실패:', error);
+            }
+            
+            // 실패시 기본 유사도
+            return { 
+                similarity: 0.3, 
+                vector: 0.3, 
+                llm: 0.3, 
+                confidence: 'low' 
+            };
+        }
+
+        // 단어 추가 (실제 API 사용)
+        async function addWordToGraph(word) {
+            if (!word || word.trim() === '') return;
+            
+            word = word.trim();
+            const addBtn = document.getElementById('addWordBtn');
+            if (addBtn) addBtn.disabled = true;
+            showLoading(true);
+            
+            try {
+                if (words.has(word)) {
+                    // 기존 단어 - 크기 증가 (새로운 연결은 생성하지 않음)
+                    const data = words.get(word);
+                    data.count++;
+                    data.size = Math.min(15 + data.count * 3, 50);
+                    
+                    nodes.update({
+                        id: word,
+                        size: data.size,
+                        title: `${word} (${data.count}회)`
+                    });
+                    
+                    updateAIStatus(`기존 단어 "${word}" 빈도 증가 (${data.count}회)`);
+                } else {
+                    // 새로운 단어 - 벡터화 및 최고 유사도 단어와 연결
+                    updateAIStatus(`"${word}" 벡터 임베딩 및 연관 분석 중...`);
+                    
+                    // 벡터화 시도 (실패해도 계속 진행)
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
+                        
+                        const vectorResponse = await fetch(`${apiBaseUrl}/api/vectorize`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ word: word }),
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (vectorResponse.ok) {
+                            const vectorData = await vectorResponse.json();
+                            wordVectors.set(word, vectorData.vector);
+                            updateAIStatus(`✅ "${word}" KoSentenceBERT 벡터화 성공`);
+                        } else {
+                            throw new Error(`API 응답 오류: ${vectorResponse.status}`);
+                        }
+                    } catch (error) {
+                        // 실패시 기본 벡터 생성
+                        const basicVector = generateBasicVector(word);
+                        wordVectors.set(word, basicVector);
+                        updateAIStatus(`🔄 "${word}" 기본 벡터 생성 완료`);
+                    }
+                    
+                    // 🎯 핵심: 기존 단어들 중 가장 유사한 단어 1개 찾기
+                    let mostSimilar = null;
+                    if (words.size > 0) {
+                        try {
+                            mostSimilar = await findMostSimilarWordAPI(word);
+                            updateAIStatus(`🔍 AI 분석: "${word}"과 가장 유사한 단어는 "${mostSimilar?.word}" (${(mostSimilar?.similarity * 100).toFixed(1)}%)`);
+                        } catch (error) {
+                            mostSimilar = findMostSimilarWordBasic(word);
+                            updateAIStatus(`🔍 기본 분석: "${word}"과 가장 유사한 단어는 "${mostSimilar?.word}" (${(mostSimilar?.similarity * 100).toFixed(1)}%)`);
+                        }
+                    }
+                    
+                    const newWordData = { count: 1, size: 18, cluster: -1 };
+                    words.set(word, newWordData);
+                    
+                    // 노드 추가
+                    const colors = [
+                        '#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', 
+                        '#64748b', '#06b6d4', '#10b981', '#84cc16'
+                    ];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    nodes.add({
+                        id: word,
+                        label: word,
+                        size: 18,
+                        color: color,
+                        title: `${word} (1회)`,
+                        font: { color: '#1e293b' }
+                    });
+                    
+                    // 🔗 가장 유사한 단어 하나만 연결 (임계값 0.2 이상)
+                    if (mostSimilar && mostSimilar.similarity > 0.2) {
+                        addEdgeWithSimilarity(
+                            mostSimilar.word, 
+                            word, 
+                            mostSimilar.similarity, 
+                            'high'
+                        );
+                        updateAIStatus(`✅ 새 연결: "${mostSimilar.word}" ↔ "${word}" (${(mostSimilar.similarity * 100).toFixed(1)}%)`);
+                    } else {
+                        updateAIStatus(`ℹ️ "${word}"는 기존 단어들과 유사도가 낮아 독립 노드로 생성`);
+                    }
+                }
+                
+                updateStats();
+                updateWordList();
+                
+            } catch (error) {
+                console.error('단어 추가 중 오류:', error);
+                updateAIStatus(`❌ 단어 추가 실패: ${error.message}`);
+            } finally {
+                if (addBtn) addBtn.disabled = false;
+                showLoading(false);
+            }
+        }
+
+        // 기본 벡터 생성
+        function generateBasicVector(word) {
+            const vector = [];
+            const vectorDim = 384; // KoSentenceBERT와 동일한 차원
+            
+            // 단어 해시 생성
+            let hash = 0;
+            for (let i = 0; i < word.length; i++) {
+                const char = word.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            
+            // 의미적 그룹 기반 벡터 생성
+            const semanticBoost = getSemanticVector(word);
+            
+            for (let i = 0; i < vectorDim; i++) {
+                // 기본 해시 기반 값
+                let value = Math.sin(hash + i) * Math.cos(hash + i * 2);
+                
+                // 의미적 특성 반영
+                if (i < semanticBoost.length) {
+                    value += semanticBoost[i] * 0.3;
+                }
+                
+                // 단어 길이 특성
+                value += Math.sin(word.length + i) * 0.1;
+                
+                // 정규화
+                vector.push(value);
+            }
+            
+            return vector;
+        }
+
+        // 의미적 벡터 성분 생성
+        function getSemanticVector(word) {
+            const semanticGroups = {
+                '동물': [0.8, 0.2, 0.1, 0.3, 0.7],
+                '스포츠': [0.1, 0.9, 0.4, 0.2, 0.3],
+                '음식': [0.3, 0.1, 0.8, 0.6, 0.2],
+                '학교': [0.2, 0.3, 0.2, 0.9, 0.4],
+                '가족': [0.7, 0.1, 0.3, 0.2, 0.8],
+                '색깔': [0.4, 0.7, 0.1, 0.1, 0.5],
+                '감정': [0.9, 0.4, 0.2, 0.3, 0.6],
+                '자연': [0.5, 0.2, 0.4, 0.1, 0.9],
+                '교통': [0.1, 0.6, 0.3, 0.5, 0.2],
+                '전자기기': [0.2, 0.8, 0.6, 0.7, 0.1],
+                '언어학습': [0.3, 0.5, 0.1, 0.8, 0.4]
+            };
+
+            // 기본값
+            let semanticVector = [0.5, 0.5, 0.5, 0.5, 0.5];
+            
+            // 단어가 속한 그룹 찾기
+            for (const [groupName, groupVector] of Object.entries(semanticGroups)) {
+                const groupWords = {
+                    '동물': ['강아지', '고양이', '토끼', '햄스터', '새', '물고기', '개', '닭'],
+                    '스포츠': ['축구', '야구', '농구', '테니스', '수영', '달리기', '운동'],
+                    '음식': ['밥', '빵', '국수', '피자', '햄버거', '치킨', '음식'],
+                    '학교': ['교실', '선생님', '학생', '책', '연필', '학교', '공부'],
+                    '가족': ['아빠', '엄마', '형', '누나', '동생', '가족'],
+                    '색깔': ['빨간색', '파란색', '노란색', '초록색', '색깔'],
+                    '감정': ['기쁨', '슬픔', '화남', '사랑', '행복'],
+                    '자연': ['나무', '꽃', '산', '바다', '하늘'],
+                    '교통': ['자동차', '버스', '지하철', '기차'],
+                    '전자기기': ['컴퓨터', '스마트폰', '텔레비전'],
+                    '언어학습': ['영어', '한국어', '중국어', '언어', '단어', '문법']
+                };
+
+                if (groupWords[groupName]?.includes(word)) {
+                    semanticVector = groupVector;
+                    break;
+                }
+            }
+            
+            return semanticVector;
+        }
+
+        // API 기반 유사한 단어 찾기
+        async function findMostSimilarWordAPI(word) {
+            const existingWords = Array.from(words.keys());
+            let maxSimilarity = -1;
+            let mostSimilarWord = null;
+            
+            for (const existingWord of existingWords) {
+                const result = await calculateRealSimilarity(word, existingWord);
+                
+                if (result.similarity > maxSimilarity) {
+                    maxSimilarity = result.similarity;
+                    mostSimilarWord = existingWord;
+                }
+            }
+            
+            return mostSimilarWord ? { 
+                word: mostSimilarWord, 
+                similarity: maxSimilarity, 
+                confidence: 'medium' 
+            } : null;
+        }
+
+        // 기본 유사한 단어 찾기
+        function findMostSimilarWordBasic(word) {
+            if (words.size === 0) return null;
+            
+            const wordArray = Array.from(words.keys());
+            let maxSimilarity = 0;
+            let mostSimilarWord = null;
+            
+            for (const existingWord of wordArray) {
+                let similarity;
+                
+                // 벡터가 있으면 벡터 유사도, 없으면 기본 유사도
+                if (wordVectors.has(word) && wordVectors.has(existingWord)) {
+                    similarity = calculateVectorSimilarity(word, existingWord);
+                } else {
+                    similarity = calculateBasicSimilarity(word, existingWord);
+                }
+                
+                if (similarity > maxSimilarity) {
+                    maxSimilarity = similarity;
+                    mostSimilarWord = existingWord;
+                }
+            }
+            
+            return { word: mostSimilarWord, similarity: maxSimilarity, confidence: 'medium' };
+        }
+
+        // 벡터 유사도 계산
+        function calculateVectorSimilarity(word1, word2) {
+            const vec1 = wordVectors.get(word1);
+            const vec2 = wordVectors.get(word2);
+            
+            if (!vec1 || !vec2) {
+                return calculateBasicSimilarity(word1, word2);
+            }
+            
+            // 코사인 유사도 계산
+            let dotProduct = 0;
+            let normA = 0;
+            let normB = 0;
+            
+            for (let i = 0; i < Math.min(vec1.length, vec2.length); i++) {
+                dotProduct += vec1[i] * vec2[i];
+                normA += vec1[i] * vec1[i];
+                normB += vec2[i] * vec2[i];
+            }
+            
+            if (normA === 0 || normB === 0) {
+                return calculateBasicSimilarity(word1, word2);
+            }
+            
+            const cosineSim = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+            
+            // 0-1 범위로 정규화
+            return Math.max(0, Math.min(1, (cosineSim + 1) / 2));
+        }
+
+        // 기본 유사도 계산 (개선된 버전)
+        function calculateBasicSimilarity(word1, word2) {
+            // 한국어 단어 특성을 고려한 유사도 계산
+            
+            // 1. 공통 문자 비율 (자카드 유사도)
+            const set1 = new Set(word1);
+            const set2 = new Set(word2);
+            const intersection = new Set([...set1].filter(x => set2.has(x)));
+            const union = new Set([...set1, ...set2]);
+            const jaccardSim = union.size > 0 ? intersection.size / union.size : 0;
+            
+            // 2. 길이 유사도
+            const lengthSim = 1 - Math.abs(word1.length - word2.length) / Math.max(word1.length, word2.length, 1);
+            
+            // 3. 의미적 그룹 유사도 (간단한 규칙 기반)
+            const semanticSim = getSemanticSimilarity(word1, word2);
+            
+            // 4. 음성적 유사도 (첫 글자, 끝 글자)
+            const phoneticSim = getPhoneticSimilarity(word1, word2);
+            
+            // 가중 평균 (의미적 유사도를 더 중요하게)
+            const finalSim = semanticSim * 0.5 + jaccardSim * 0.2 + lengthSim * 0.2 + phoneticSim * 0.1;
+            
+            // 결과 정규화 및 약간의 랜덤성 추가
+            return Math.max(0.1, Math.min(0.95, finalSim + Math.random() * 0.05));
+        }
+
+        // 의미적 유사도 계산
+        function getSemanticSimilarity(word1, word2) {
+            const semanticGroups = {
+                '동물': ['강아지', '고양이', '토끼', '햄스터', '새', '물고기', '코끼리', '사자', '호랑이', '곰', '개', '닭', '돼지', '소', '말'],
+                '스포츠': ['축구', '야구', '농구', '테니스', '수영', '달리기', '골프', '배드민턴', '탁구', '권투', '운동', '경기'],
+                '음식': ['밥', '빵', '국수', '피자', '햄버거', '치킨', '떡볶이', '김치', '불고기', '냉면', '라면', '과일', '야채'],
+                '학교': ['교실', '선생님', '학생', '책', '연필', '칠판', '시험', '숙제', '공부', '친구', '학교', '교육', '수업'],
+                '가족': ['아빠', '엄마', '형', '누나', '동생', '할머니', '할아버지', '삼촌', '이모', '가족', '부모'],
+                '색깔': ['빨간색', '파란색', '노란색', '초록색', '검은색', '하얀색', '보라색', '주황색', '분홍색'],
+                '감정': ['기쁨', '슬픔', '화남', '사랑', '미움', '두려움', '놀람', '행복', '우울', '즐거움'],
+                '자연': ['나무', '꽃', '산', '바다', '강', '하늘', '구름', '비', '눈', '태양', '달', '별'],
+                '교통': ['자동차', '버스', '지하철', '기차', '비행기', '배', '자전거', '오토바이'],
+                '전자기기': ['컴퓨터', '스마트폰', '텔레비전', '라디오', '냉장고', '세탁기', '에어컨'],
+                '언어학습': ['영어', '한국어', '중국어', '일본어', '단어', '문법', '발음', '번역', '언어', '외국어']
+            };
+
+            // 같은 그룹에 속하면 높은 유사도
+            for (const group of Object.values(semanticGroups)) {
+                if (group.includes(word1) && group.includes(word2)) {
+                    return 0.8 + Math.random() * 0.15; // 0.8-0.95
+                }
+            }
+
+            // 관련 그룹 간 유사도
+            const relatedGroups = [
+                ['동물', '자연'],
+                ['스포츠', '학교'],  
+                ['음식', '가족'],
+                ['감정', '색깔'],
+                ['교통', '전자기기'],
+                ['학교', '언어학습']
+            ];
+
+            for (const [group1, group2] of relatedGroups) {
+                if ((semanticGroups[group1]?.includes(word1) && semanticGroups[group2]?.includes(word2)) ||
+                    (semanticGroups[group2]?.includes(word1) && semanticGroups[group1]?.includes(word2))) {
+                    return 0.5 + Math.random() * 0.2; // 0.5-0.7
+                }
+            }
+
+            return 0.1 + Math.random() * 0.2; // 0.1-0.3
+        }
+
+        // 음성적 유사도
+        function getPhoneticSimilarity(word1, word2) {
+            if (!word1 || !word2) return 0;
+            
+            let similarity = 0;
+            
+            // 첫 글자 같으면 +0.3
+            if (word1[0] === word2[0]) similarity += 0.3;
+            
+            // 끝 글자 같으면 +0.2
+            if (word1[word1.length - 1] === word2[word2.length - 1]) similarity += 0.2;
+            
+            // 중간에 공통 글자 있으면 +0.1
+            for (let char of word1) {
+                if (word2.includes(char)) {
+                    similarity += 0.1;
+                    break;
+                }
+            }
+            
+            return Math.min(similarity, 0.6);
+        }
+
+        // 엣지 추가 함수 (개선된 버전)
+        function addEdgeWithSimilarity(fromWord, toWord, similarity, confidence, reason = '', method = 'basic') {
+            const edgeId = `${fromWord}-${toWord}`;
+            const reverseEdgeId = `${toWord}-${fromWord}`;
+            
+            // 이미 존재하는 엣지 확인 (양방향)
+            if (edges.get(edgeId) || edges.get(reverseEdgeId)) {
+                return;
+            }
+            
+            // 유사도에 따른 엣지 스타일 결정
+            const edgeWidth = Math.max(1, Math.min(6, similarity * 8));
+            let edgeColor = '#64748b';
+            let opacity = 0.6;
+            
+            if (similarity >= 0.7) {
+                edgeColor = '#dc2626'; // 빨간색 - 매우 강한 연관성
+                opacity = 0.9;
+            } else if (similarity >= 0.5) {
+                edgeColor = '#ea580c'; // 주황색 - 강한 연관성
+                opacity = 0.8;
+            } else if (similarity >= 0.3) {
+                edgeColor = '#3b82f6'; // 파란색 - 보통 연관성
+                opacity = 0.7;
+            }
+            
+            try {
+                edges.add({
+                    id: edgeId,
+                    from: fromWord,
+                    to: toWord,
+                    width: edgeWidth,
+                    color: { 
+                        color: edgeColor, 
+                        opacity: opacity,
+                        highlight: edgeColor,
+                        hover: '#1e293b'
+                    },
+                    title: `연관도: ${(similarity * 100).toFixed(1)}%`,
+                    smooth: {
+                        type: similarity > 0.6 ? 'straightCross' : 'continuous'
+                    }
+                });
+                
+                console.log(`엣지 추가됨: ${fromWord} ↔ ${toWord} (${(similarity * 100).toFixed(1)}%)`);
+            } catch (error) {
+                console.error('엣지 추가 실패:', error);
+            }
+        }
+
+        // 네트워크 초기화
+        function initNetwork() {
+            nodes = new vis.DataSet([]);
+            edges = new vis.DataSet([]);
+            
+            const container = document.getElementById('network');
+            const data = { nodes: nodes, edges: edges };
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    size: 15,
+                    font: {
+                        size: 14,
+                        color: '#1e293b',
+                        face: 'Arial'
+                    },
+                    borderWidth: 2,
+                    shadow: {
+                        enabled: true,
+                        color: 'rgba(0,0,0,0.1)',
+                        size: 4
+                    }
+                },
+                edges: {
+                    color: { 
+                        color: '#64748b', 
+                        opacity: 0.6 
+                    },
+                    smooth: {
+                        type: 'continuous'
+                    },
+                    width: 2
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: { iterations: 100 },
+                    barnesHut: {
+                        gravitationalConstant: -8000,
+                        springConstant: 0.001,
+                        springLength: 200,
+                        damping: 0.09
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 300,
+                    hoverConnectedEdges: true
+                }
+            };
+            
+            network = new vis.Network(container, data, options);
+        }
+
+        // 폴백 클러스터링
+        function performFallbackClustering() {
+            const wordArray = Array.from(words.keys());
+            clusters = wordArray.map((_, index) => index % 3);
+            
+            const clusterColors = ['#3b82f6', '#6366f1', '#0ea5e9'];
+            wordArray.forEach((word, index) => {
+                const clusterId = clusters[index];
+                const color = clusterColors[clusterId % clusterColors.length];
+                
+                nodes.update({
+                    id: word,
+                    color: {
+                        background: color,
+                        border: color,
+                        highlight: { background: color, border: '#1e293b' }
+                    }
+                });
+                
+                words.get(word).cluster = clusterId;
+            });
+            
+            updateClusterDisplay();
+            updateStats();
+        }
+
+        // 유틸리티 함수들
+        function showLoading(show) {
+            const indicator = document.getElementById('loadingIndicator');
+            if (show) {
+                indicator.classList.add('active');
+            } else {
+                indicator.classList.remove('active');
+            }
+        }
+
+        function updateAIStatus(message) {
+            const statusContent = document.getElementById('aiStatus');
+            const timestamp = new Date().toLocaleTimeString();
+            statusContent.innerHTML = `
+                <strong>${timestamp}</strong><br>
+                ${message}<br>
+                <small>실제 KoSentenceBERT + OpenAI GPT</small>
+            `;
+        }
+
+        // 통계 업데이트
+        function updateStats() {
+            const totalCount = Array.from(words.values()).reduce((sum, data) => sum + data.count, 0);
+            const connectionCount = edges.length;
+            const connectivity = words.size > 0 ? Math.round((connectionCount / Math.max(words.size - 1, 1)) * 100) : 0;
+            
+            document.getElementById('totalWords').textContent = totalCount;
+            document.getElementById('uniqueWords').textContent = words.size;
+            document.getElementById('totalClusters').textContent = new Set(Array.from(words.values()).map(d => d.cluster).filter(c => c !== -1)).size;
+            document.getElementById('connectivity').textContent = connectivity + '%';
+            document.getElementById('silhouetteScore').textContent = silhouetteScore > 0 ? silhouetteScore.toFixed(3) : '-';
+        }
+
+        // 단어 목록 업데이트
+        function updateWordList() {
+            const container = document.getElementById('wordListContainer');
+            
+            if (words.size === 0) {
+                container.innerHTML = '<p style="color: #64748b; font-size: 13px; text-align: center;">아직 단어가 없습니다</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            const sortedWords = Array.from(words.entries()).sort((a, b) => b[1].count - a[1].count);
+            
+            sortedWords.forEach(([word, data]) => {
+                const item = document.createElement('div');
+                item.className = 'word-item';
+                item.innerHTML = `
+                    <span style="color: #1e293b;">${word}</span>
+                    <span class="word-count">${data.count}</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // 클러스터 표시 업데이트
+        function updateClusterDisplay() {
+            const container = document.getElementById('clustersContainer');
+            
+            const clusterMap = new Map();
+            for (const [word, data] of words) {
+                if (data.cluster !== -1) {
+                    if (!clusterMap.has(data.cluster)) {
+                        clusterMap.set(data.cluster, []);
+                    }
+                    clusterMap.get(data.cluster).push(word);
+                }
+            }
+            
+            if (clusterMap.size === 0) {
+                container.innerHTML = '<p style="color: #64748b; font-size: 13px; text-align: center;">단어를 추가하고 AI 군집화를 실행하세요</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            for (const [clusterId, wordsInCluster] of clusterMap) {
+                const clusterDiv = document.createElement('div');
+                clusterDiv.className = 'cluster';
+                
+                const label = clusterLabels.get(clusterId) || `클러스터 ${clusterId + 1}`;
+                const avgCount = wordsInCluster.reduce((sum, word) => sum + words.get(word).count, 0) / wordsInCluster.length;
+                
+                const colors = ['#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', '#64748b', '#06b6d4', '#10b981', '#84cc16'];
+                const borderColor = colors[clusterId % colors.length];
+                
+                clusterDiv.style.borderLeftColor = borderColor;
+                clusterDiv.innerHTML = `
+                    <div class="cluster-title">
+                        <span style="margin-right: 8px;">📊</span>
+                        ${label}
+                    </div>
+                    <div class="cluster-words">${wordsInCluster.join(', ')}</div>
+                    <div class="cluster-stats">
+                        ${wordsInCluster.length}개 단어 | 평균 빈도: ${avgCount.toFixed(1)}
+                        ${silhouetteScore > 0 ? ` | 품질: ${silhouetteScore.toFixed(3)}` : ''}
+                    </div>
+                `;
+                container.appendChild(clusterDiv);
+            }
+        }
+
+        // QR코드 생성
+        function generateQR() {
+            try {
+                const baseUrl = window.location.origin + window.location.pathname;
+                const qrUrl = `${baseUrl}?mode=submit&session=${sessionId}&room=${Date.now()}`;
+                
+                if (typeof QRCode !== 'undefined') {
+                    QRCode.toCanvas(document.getElementById('qrcode'), qrUrl, { 
+                        width: 120,
+                        margin: 1,
+                        color: {
+                            dark: '#1e293b',
+                            light: '#ffffff'
+                        }
+                    }, function (error) {
+                        if (error) {
+                            console.error('QR 생성 오류:', error);
+                            showQRError();
+                        }
+                    });
+                } else {
+                    console.warn('QRCode 라이브러리가 로드되지 않음');
+                    showQRError();
+                }
+            } catch (error) {
+                console.error('QR 생성 실패:', error);
+                showQRError();
+            }
+        }
+
+        // QR 코드 오류시 대체 표시
+        function showQRError() {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = `
+                <div style="
+                    width: 120px; 
+                    height: 120px; 
+                    background: #f1f5f9; 
+                    border: 2px dashed #64748b; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center;
+                    font-size: 11px;
+                    color: #64748b;
+                    text-align: center;
+                    border-radius: 8px;
+                ">
+                    QR 코드<br>생성 중...
+                </div>
+            `;
+        }
+
+        // URL 파라미터 확인
+        function checkMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const mode = urlParams.get('mode');
+            
+            if (mode === 'submit') {
+                document.querySelector('.container').style.display = 'none';
+                document.getElementById('submitPage').classList.add('active');
+            }
+        }
+
+        // API 상태 확인
+        async function checkApiHealth() {
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/health`);
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    updateAIStatus(`API 연결됨 - 모델: ${data.model_loaded ? '✅' : '❌'} | OpenAI: ${data.openai_available ? '✅' : '❌'}`);
+                } else {
+                    updateAIStatus('API 서버 응답 이상 - 백엔드 확인 필요');
+                }
+            } catch (error) {
+                updateAIStatus('API 서버 미연결 - 로컬 시뮬레이션 모드');
+                console.log('API 서버가 실행되지 않음:', error.message);
+            }
+        }
+
+        // 초기화 및 이벤트 리스너
+        document.addEventListener('DOMContentLoaded', function() {
+            checkMode();
+            
+            if (window.location.search.includes('mode=submit')) {
+                return;
+            }
+            
+            initNetwork();
+            
+            // QR코드 생성 (지연으로 라이브러리 로딩 대기)
+            setTimeout(() => {
+                generateQR();
+            }, 1000);
+            
+            updateAIStatus('실제 AI 시스템 준비완료');
+            
+            // 자동으로 API 연결 상태 확인
+            checkApiHealth();
+            
+            // 주기적으로 로컬 큐 확인
+            setInterval(checkLocalQueue, 1000);
+            
+            // 큐 디스플레이 주기적 업데이트
+            setInterval(updateQueueDisplay, 2000);
+            
+            // 샘플 데이터 추가 (더 다양한 단어로)
+            setTimeout(() => {
+                const sampleWords = ['강아지', '고양이', '축구', '야구', '사과', '바나나', '학교', '친구'];
+                let delay = 1000;
+                sampleWords.forEach(word => {
+                    setTimeout(() => addWordToGraph(word), delay);
+                    delay += 1500; // 조금 더 빠르게
+                });
+            }, 2000);
+            
+            // 연결 재분석 버튼에 추가 기능 (단어가 충분히 추가된 후)
+            setTimeout(() => {
+                if (words.size >= 4) {
+                    console.log('초기 최적 연결 분석 시작');
+                    updateAllConnections();
+                }
+            }, 12000); // 12초 후 자동으로 최적 연결 분석
+        });
+    </script>
+</body>
+</html> '
