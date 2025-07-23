@@ -121,13 +121,6 @@
     <div class="container">
         <!-- Sidebar -->
         <div class="sidebar">
-            <div class="api-config">
-                <h3>🔧 API 설정</h3>
-                <input type="text" id="apiUrl" placeholder="API URL (예: http://localhost:8000)" value="http://localhost:8000">
-                <button onclick="testApiConnection()">연결 테스트</button>
-                <div id="apiStatus"></div>
-            </div>
-
             <div class="qr-section">
                 <h3>📱 QR코드로 단어 입력</h3>
                 <div class="qr-code" id="qrcode"></div>
@@ -234,43 +227,8 @@
         let sessionId = Math.random().toString(36).substr(2, 9);
         let autoClusterInterval = null;
         let isProcessing = false;
-        let apiBaseUrl = 'http://localhost:8000';
+        let apiBaseUrl = 'http://localhost:8000'; // 개발환경 기본값
         let silhouetteScore = 0;
-
-        // API 연결 테스트
-        async function testApiConnection() {
-            const urlInput = document.getElementById('apiUrl');
-            const statusDiv = document.getElementById('apiStatus');
-            apiBaseUrl = urlInput.value.replace(/\/$/, ''); // 끝의 / 제거
-            
-            try {
-                statusDiv.innerHTML = '<div style="color: #f59e0b;">연결 테스트 중...</div>';
-                
-                const response = await fetch(`${apiBaseUrl}/api/health`);
-                const data = await response.json();
-                
-                if (data.status === 'healthy') {
-                    statusDiv.innerHTML = `
-                        <div class="success-message">
-                            ✅ API 연결 성공<br>
-                            모델: ${data.model_loaded ? '로드됨' : '로드 실패'}<br>
-                            OpenAI: ${data.openai_available ? '사용 가능' : '설정 필요'}
-                        </div>
-                    `;
-                    updateAIStatus('API 서버 연결 완료 - 실제 AI 사용 가능');
-                } else {
-                    throw new Error('서버 상태 이상');
-                }
-            } catch (error) {
-                statusDiv.innerHTML = `
-                    <div class="error-message">
-                        ❌ 연결 실패: ${error.message}<br>
-                        API 서버가 실행 중인지 확인하세요
-                    </div>
-                `;
-                updateAIStatus('API 서버 연결 실패 - 시뮬레이션 모드');
-            }
-        }
 
         // 전역 함수들 (HTML에서 직접 호출)
         function addWord() {
@@ -1032,15 +990,32 @@
             
             initNetwork();
             generateQR();
-            updateAIStatus('실제 AI 시스템 준비완료 - API 연결 테스트 필요');
+            updateAIStatus('실제 AI 시스템 준비완료');
             
-            // API 연결 자동 테스트
-            testApiConnection();
+            // 자동으로 API 연결 상태 확인
+            checkApiHealth();
             
             // 주기적으로 제출된 단어 확인
             setInterval(checkSubmittedWords, 2000);
             
             // 샘플 데이터 추가 (API 연결 후)
+        // API 상태 자동 확인
+        async function checkApiHealth() {
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/health`);
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    updateAIStatus(`API 연결됨 - 모델: ${data.model_loaded ? '✅' : '❌'} | OpenAI: ${data.openai_available ? '✅' : '❌'}`);
+                } else {
+                    updateAIStatus('API 서버 응답 이상 - 백엔드 확인 필요');
+                }
+            } catch (error) {
+                updateAIStatus('API 서버 미연결 - 로컬 시뮬레이션 모드');
+                console.log('API 서버가 실행되지 않음:', error.message);
+            }
+        }
+            // 샘플 데이터 추가 (API 상태 확인 후)
             setTimeout(() => {
                 const sampleWords = ['강아지', '고양이', '축구'];
                 let delay = 1000;
@@ -1048,7 +1023,7 @@
                     setTimeout(() => addWordToGraph(word), delay);
                     delay += 2000;
                 });
-            }, 3000);
+            }, 2000);
         });
     </script>
 </body>
