@@ -1,388 +1,4 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>한국어 단어 그래프 - AI 하이브리드</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/standalone/umd/vis-network.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-            min-height: 100vh;
-            color: #1e293b;
-        }
-
-        .container {
-            display: flex;
-            height: 100vh;
-        }
-
-        .sidebar {
-            width: 320px;
-            background: rgba(248, 250, 252, 0.95);
-            padding: 20px;
-            box-shadow: 2px 0 25px rgba(15, 23, 42, 0.1);
-            overflow-y: auto;
-            backdrop-filter: blur(15px);
-            border-right: 1px solid rgba(226, 232, 240, 0.3);
-        }
-
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header {
-            background: rgba(248, 250, 252, 0.95);
-            padding: 20px;
-            box-shadow: 0 4px 25px rgba(15, 23, 42, 0.1);
-            backdrop-filter: blur(15px);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.3);
-        }
-
-        .header h1 {
-            background: linear-gradient(135deg, #3b82f6, #6366f1);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-size: 24px;
-            margin-bottom: 5px;
-            font-weight: 700;
-        }
-
-        .graph-container {
-            flex: 1;
-            background: rgba(248, 250, 252, 0.95);
-            margin: 15px;
-            border-radius: 15px;
-            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        #network {
-            width: 100%;
-            height: 100%;
-            border-radius: 15px;
-        }
-
-        .qr-section {
-            text-align: center;
-            margin-bottom: 25px;
-            padding: 20px;
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-            border-radius: 16px;
-            border: 1px solid rgba(226, 232, 240, 0.5);
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .qr-section h3 {
-            color: #475569;
-            margin-bottom: 15px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .qr-code {
-            margin: 15px 0;
-            display: flex;
-            justify-content: center;
-        }
-
-        .word-input {
-            margin-bottom: 25px;
-            background: linear-gradient(135deg, #ffffff, #f8fafc);
-            padding: 20px;
-            border-radius: 16px;
-            border: 1px solid rgba(226, 232, 240, 0.5);
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .word-input h3 {
-            color: #3b82f6;
-            margin-bottom: 15px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .word-input input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid rgba(226, 232, 240, 0.8);
-            border-radius: 12px;
-            font-size: 16px;
-            background: #ffffff;
-            transition: all 0.3s ease;
-            color: #1e293b;
-        }
-
-        .word-input input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .word-input button {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .word-input button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        }
-
-        .ai-status {
-            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(186, 230, 253, 0.5);
-            font-size: 13px;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .ai-status-title {
-            font-weight: 600;
-            color: #3b82f6;
-            margin-bottom: 8px;
-        }
-
-        .ai-status-content {
-            color: #475569;
-            line-height: 1.4;
-        }
-
-        .controls {
-            margin-bottom: 25px;
-            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
-            padding: 20px;
-            border-radius: 16px;
-            border: 1px solid rgba(226, 232, 240, 0.5);
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .controls h3 {
-            color: #334155;
-            margin-bottom: 15px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .controls button {
-            padding: 10px 16px;
-            margin: 6px 6px 6px 0;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
-        }
-
-        .btn-secondary {
-            background: linear-gradient(135deg, #6366f1, #4f46e5);
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: linear-gradient(135deg, #4f46e5, #4338ca);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #0ea5e9, #0284c7);
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: linear-gradient(135deg, #0284c7, #0369a1);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.3);
-        }
-
-        .btn-warning {
-            background: linear-gradient(135deg, #64748b, #475569);
-            color: white;
-        }
-
-        .btn-warning:hover {
-            background: linear-gradient(135deg, #475569, #334155);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(100, 116, 139, 0.3);
-        }
-
-        .stats {
-            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
-            padding: 20px;
-            border-radius: 16px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(226, 232, 240, 0.5);
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .stats h3 {
-            color: #334155;
-            margin-bottom: 15px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(226, 232, 240, 0.5);
-            color: #64748b;
-        }
-
-        .stat-item:last-child {
-            border-bottom: none;
-        }
-
-        .stat-value {
-            font-weight: 600;
-            color: #3b82f6;
-        }
-
-        .clusters {
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-            padding: 20px;
-            border-radius: 16px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(226, 232, 240, 0.5);
-            max-height: 300px;
-            overflow-y: auto;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .clusters h3 {
-            color: #334155;
-            margin-bottom: 15px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .cluster {
-            margin-bottom: 15px;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 12px;
-            border-left: 5px solid;
-            backdrop-filter: blur(5px);
-            transition: transform 0.2s ease;
-        }
-
-        .cluster:hover {
-            transform: translateX(5px);
-        }
-
-        .cluster-title {
-            font-weight: bold;
-            margin-bottom: 8px;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-        }
-
-        .cluster-emoji {
-            margin-right: 8px;
-            font-size: 16px;
-        }
-
-        .cluster-words {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.4;
-        }
-
-        .cluster-stats {
-            font-size: 11px;
-            color: #999;
-            margin-top: 5px;
-            font-style: italic;
-        }
-
-        .word-list {
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-            padding: 20px;
-            border-radius: 16px;
-            max-height: 250px;
-            overflow-y: auto;
-            border: 1px solid rgba(226, 232, 240, 0.5);
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-        }
-
-        .word-list h3 {
-            color: #334155;
-            margin-bottom: 15px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .word-item {
-            padding: 8px 12px;
-            margin: 4px 0;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: transform 0.2s ease;
-        }
-
-        .word-item:hover {
-            transform: scale(1.02);
-        }
-
-        .word-count {
-            background: linear-gradient(135deg, #3b82f6, #6366f1);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .submit-page {
-            display: none;
-            text-align: center;
-            padding: 60px 20px;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-        }
-
-        .submit-page.active {
+.submit-page.active {
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -463,6 +79,26 @@
             display: block;
         }
 
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 13px;
+            border: 1px solid #fecaca;
+        }
+
+        .success-message {
+            background: #dcfce7;
+            color: #16a34a;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 13px;
+            border: 1px solid #bbf7d0;
+        }
+
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
@@ -485,6 +121,13 @@
     <div class="container">
         <!-- Sidebar -->
         <div class="sidebar">
+            <div class="api-config">
+                <h3>🔧 API 설정</h3>
+                <input type="text" id="apiUrl" placeholder="API URL (예: http://localhost:8000)" value="http://localhost:8000">
+                <button onclick="testApiConnection()">연결 테스트</button>
+                <div id="apiStatus"></div>
+            </div>
+
             <div class="qr-section">
                 <h3>📱 QR코드로 단어 입력</h3>
                 <div class="qr-code" id="qrcode"></div>
@@ -494,23 +137,24 @@
             <div class="word-input">
                 <h3>✏️ 직접 단어 입력</h3>
                 <input type="text" id="wordInput" placeholder="단어를 입력하세요" onkeypress="if(event.key==='Enter') addWord()">
-                <button onclick="addWord()">단어 추가</button>
+                <button onclick="addWord()" id="addWordBtn">단어 추가</button>
             </div>
 
             <div class="ai-status">
-                <div class="ai-status-title">🤖 AI 상태</div>
+                <div class="ai-status-title">🤖 실제 AI 상태</div>
                 <div class="ai-status-content" id="aiStatus">
-                    LLM 하이브리드 모드 활성화됨<br>
-                    벡터 임베딩 + GPT 유사도 분석 준비완료
+                    KoSentenceBERT + OpenAI GPT 연동<br>
+                    API 서버 연결을 확인하세요
                 </div>
             </div>
 
             <div class="controls">
-                <h3>🎛️ 그래프 제어</h3>
-                <button class="btn-primary" onclick="performClustering()">AI 군집화</button>
-                <button class="btn-warning" onclick="generateLabels()">LLM 라벨링</button>
-                <button class="btn-success" onclick="autoCluster()">자동 모드</button>
-                <button class="btn-secondary" onclick="clearGraph()">초기화</button>
+                <h3>🎛️ 실제 AI 제어</h3>
+                <button class="btn-primary" onclick="performRealClustering()" id="clusterBtn">실제 AI 군집화</button>
+                <button class="btn-secondary" onclick="generateRealLabels()" id="labelBtn">GPT 라벨링</button>
+                <button class="btn-success" onclick="updateAllConnections()" id="connectionBtn">연결 재분석</button>
+                <button class="btn-success" onclick="autoCluster()" id="autoBtn">자동 모드</button>
+                <button class="btn-warning" onclick="clearGraph()">초기화</button>
             </div>
 
             <div class="stats">
@@ -531,12 +175,16 @@
                     <span>연결성:</span>
                     <span class="stat-value" id="connectivity">0%</span>
                 </div>
+                <div class="stat-item">
+                    <span>실루엣 점수:</span>
+                    <span class="stat-value" id="silhouetteScore">-</span>
+                </div>
             </div>
 
             <div class="clusters">
-                <h3>🎯 AI 생성 클러스터</h3>
+                <h3>🎯 GPT 생성 클러스터</h3>
                 <div id="clustersContainer">
-                    <p style="color: #999; font-size: 13px; text-align: center;">단어를 추가하고 군집화를 실행하세요</p>
+                    <p style="color: #999; font-size: 13px; text-align: center;">단어를 추가하고 AI 군집화를 실행하세요</p>
                 </div>
             </div>
 
@@ -551,14 +199,14 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="header">
-                <h1>🧠 실시간 한국어 단어 연관 그래프 - AI 하이브리드</h1>
-                <p>벡터 임베딩 + LLM 하이브리드 유사도 분석 | AI 자동 라벨링 | 군집 시각화</p>
+                <h1>🧠 실시간 한국어 단어 연관 그래프 - 실제 AI</h1>
+                <p>KoSentenceBERT 벡터 임베딩 + OpenAI GPT 하이브리드 분석 | 실제 K-means 클러스터링</p>
             </div>
             
             <div class="graph-container">
                 <div id="network"></div>
                 <div class="loading-indicator" id="loadingIndicator">
-                    🤖 AI 분석 중...
+                    🤖 실제 AI 분석 중...
                 </div>
             </div>
         </div>
@@ -569,9 +217,9 @@
         <div class="submit-card">
             <h2>💬 단어 입력</h2>
             <input type="text" id="submitInput" placeholder="단어를 입력하세요" onkeypress="if(event.key==='Enter') submitWord()">
-            <button onclick="submitWord()">AI 그래프에 전송</button>
+            <button onclick="submitWord()">실제 AI에 전송</button>
             <p style="margin-top: 20px; font-size: 14px; color: #666;">
-                입력한 단어는 AI가 분석하여<br>실시간 그래프에 반영됩니다
+                입력한 단어는 실제 AI가 분석하여<br>실시간 그래프에 반영됩니다
             </p>
         </div>
     </div>
@@ -580,13 +228,49 @@
         // 전역 변수
         let words = new Map();
         let wordVectors = new Map();
-        let llmCache = new Map();
         let nodes, edges, network;
         let clusters = [];
         let clusterLabels = new Map();
         let sessionId = Math.random().toString(36).substr(2, 9);
         let autoClusterInterval = null;
         let isProcessing = false;
+        let apiBaseUrl = 'http://localhost:8000';
+        let silhouetteScore = 0;
+
+        // API 연결 테스트
+        async function testApiConnection() {
+            const urlInput = document.getElementById('apiUrl');
+            const statusDiv = document.getElementById('apiStatus');
+            apiBaseUrl = urlInput.value.replace(/\/$/, ''); // 끝의 / 제거
+            
+            try {
+                statusDiv.innerHTML = '<div style="color: #f59e0b;">연결 테스트 중...</div>';
+                
+                const response = await fetch(`${apiBaseUrl}/api/health`);
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    statusDiv.innerHTML = `
+                        <div class="success-message">
+                            ✅ API 연결 성공<br>
+                            모델: ${data.model_loaded ? '로드됨' : '로드 실패'}<br>
+                            OpenAI: ${data.openai_available ? '사용 가능' : '설정 필요'}
+                        </div>
+                    `;
+                    updateAIStatus('API 서버 연결 완료 - 실제 AI 사용 가능');
+                } else {
+                    throw new Error('서버 상태 이상');
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="error-message">
+                        ❌ 연결 실패: ${error.message}<br>
+                        API 서버가 실행 중인지 확인하세요
+                    </div>
+                `;
+                updateAIStatus('API 서버 연결 실패 - 시뮬레이션 모드');
+            }
+        }
 
         // 전역 함수들 (HTML에서 직접 호출)
         function addWord() {
@@ -613,118 +297,162 @@
             }
         }
 
-        function performClustering() {
+        // 실제 AI를 사용한 클러스터링
+        async function performRealClustering() {
             if (words.size < 3) {
-                alert('클러스터링하려면 최소 3개의 단어가 필요합니다.');
+                alert('클러스터링하려면 최소 3개 이상의 단어가 필요합니다.');
                 return;
             }
             
+            const clusterBtn = document.getElementById('clusterBtn');
+            clusterBtn.disabled = true;
             showLoading(true);
-            updateAIStatus('AI 군집화 분석 중...');
+            updateAIStatus('실제 K-means 클러스터링 실행 중...');
             
-            setTimeout(() => {
-                try {
-                    const wordArray = Array.from(words.keys());
-                    const vectors = wordArray.map(word => wordVectors.get(word));
+            try {
+                const wordArray = Array.from(words.keys());
+                
+                const response = await fetch(`${apiBaseUrl}/api/clustering`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        words: wordArray,
+                        num_clusters: Math.min(Math.ceil(words.size / 3), 6)
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API 오류: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                clusters = data.cluster_assignments;
+                silhouetteScore = data.silhouette_score;
+                
+                // 클러스터별 색상 및 공간 배치
+                const clusterColors = [
+                    '#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', 
+                    '#64748b', '#06b6d4', '#10b981', '#84cc16'
+                ];
+                
+                // 클러스터별 공간 배치 (원형으로 분산)
+                const numClusters = Math.max(...clusters) + 1;
+                const clusterCenters = [];
+                for (let i = 0; i < numClusters; i++) {
+                    const angle = (2 * Math.PI * i) / numClusters;
+                    const radius = 300;
+                    clusterCenters.push({
+                        x: Math.cos(angle) * radius,
+                        y: Math.sin(angle) * radius
+                    });
+                }
+                
+                wordArray.forEach((word, index) => {
+                    const clusterId = clusters[index];
+                    const color = clusterColors[clusterId % clusterColors.length];
+                    const center = clusterCenters[clusterId];
                     
-                    const k = Math.min(Math.ceil(words.size / 3), 6);
-                    clusters = kMeansClustering(vectors, k);
+                    // 클러스터 중심 주변에 노드 배치
+                    const randomOffset = {
+                        x: center.x + (Math.random() - 0.5) * 150,
+                        y: center.y + (Math.random() - 0.5) * 150
+                    };
                     
-                    // 클러스터별 색상 및 공간 배치
-                    const clusterColors = [
-                        '#3b82f6', '#6366f1', '#0ea5e9', '#64748b', 
-                        '#475569', '#10b981', '#f59e0b', '#374151'
-                    ];
-                    
-                    // 클러스터별 공간 배치 (원형으로 분산)
-                    const clusterCenters = [];
-                    for (let i = 0; i < k; i++) {
-                        const angle = (2 * Math.PI * i) / k;
-                        const radius = 300;
-                        clusterCenters.push({
-                            x: Math.cos(angle) * radius,
-                            y: Math.sin(angle) * radius
-                        });
-                    }
-                    
-                    wordArray.forEach((word, index) => {
-                        const clusterId = clusters[index];
-                        const color = clusterColors[clusterId % clusterColors.length];
-                        const center = clusterCenters[clusterId];
-                        
-                        // 클러스터 중심 주변에 노드 배치
-                        const randomOffset = {
-                            x: center.x + (Math.random() - 0.5) * 150,
-                            y: center.y + (Math.random() - 0.5) * 150
-                        };
-                        
-                        nodes.update({
-                            id: word,
-                            color: {
-                                background: color,
-                                border: color,
-                                highlight: { background: color, border: '#1e293b' }
-                            },
-                            x: randomOffset.x,
-                            y: randomOffset.y
-                        });
-                        
-                        words.get(word).cluster = clusterId;
+                    nodes.update({
+                        id: word,
+                        color: {
+                            background: color,
+                            border: color,
+                            highlight: { background: color, border: '#1e293b' }
+                        },
+                        x: randomOffset.x,
+                        y: randomOffset.y
                     });
                     
-                    updateClusterDisplay();
-                    updateStats();
-                    updateAIStatus('군집화 완료 - AI 라벨링 실행 중...');
-                    
-                    // 자동 라벨링 실행
-                    setTimeout(() => generateLabels(), 1000);
-                    
-                } catch (error) {
-                    console.error('클러스터링 오류:', error);
-                    updateAIStatus('클러스터링 중 오류 발생');
-                } finally {
-                    showLoading(false);
-                }
-            }, 100);
+                    words.get(word).cluster = clusterId;
+                });
+                
+                updateClusterDisplay();
+                updateStats();
+                updateAIStatus(`실제 K-means 완료 (실루엣 점수: ${silhouetteScore.toFixed(3)}) - GPT 라벨링 준비`);
+                
+                // 자동 라벨링 실행
+                setTimeout(() => generateRealLabels(), 1000);
+                
+            } catch (error) {
+                console.error('실제 클러스터링 오류:', error);
+                updateAIStatus(`클러스터링 실패: ${error.message} - 시뮬레이션으로 진행`);
+                
+                // 실패시 기본 클러스터링
+                performFallbackClustering();
+            } finally {
+                clusterBtn.disabled = false;
+                showLoading(false);
+            }
         }
 
-        function generateLabels() {
+        // 실제 GPT를 사용한 라벨 생성
+        async function generateRealLabels() {
+            const labelBtn = document.getElementById('labelBtn');
+            labelBtn.disabled = true;
             showLoading(true);
-            updateAIStatus('LLM 기반 라벨 생성 중...');
+            updateAIStatus('OpenAI GPT로 클러스터 라벨 생성 중...');
             
-            setTimeout(() => {
-                try {
-                    const clusterMap = new Map();
-                    
-                    for (const [word, data] of words) {
-                        if (data.cluster !== -1) {
-                            if (!clusterMap.has(data.cluster)) {
-                                clusterMap.set(data.cluster, []);
-                            }
-                            clusterMap.get(data.cluster).push(word);
+            try {
+                const clusterMap = new Map();
+                
+                for (const [word, data] of words) {
+                    if (data.cluster !== -1) {
+                        if (!clusterMap.has(data.cluster)) {
+                            clusterMap.set(data.cluster, []);
                         }
+                        clusterMap.get(data.cluster).push(word);
                     }
-                    
-                    // 각 클러스터에 대해 라벨 생성
-                    for (const [clusterId, wordsInCluster] of clusterMap) {
-                        const label = generateClusterLabel(wordsInCluster);
-                        clusterLabels.set(clusterId, label);
-                    }
-                    
-                    updateClusterDisplay();
-                    updateAIStatus(`${clusterMap.size}개 클러스터 라벨링 완료`);
-                    
-                } catch (error) {
-                    console.error('라벨링 오류:', error);
-                    updateAIStatus('라벨링 중 오류 발생');
-                } finally {
-                    showLoading(false);
                 }
-            }, 100);
+                
+                // 각 클러스터에 대해 실제 GPT로 라벨 생성
+                for (const [clusterId, wordsInCluster] of clusterMap) {
+                    try {
+                        const response = await fetch(`${apiBaseUrl}/api/generate-labels`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                words: wordsInCluster
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            clusterLabels.set(clusterId, data.label);
+                        } else {
+                            // API 실패시 기본 라벨
+                            clusterLabels.set(clusterId, `📊 그룹 ${clusterId + 1}`);
+                        }
+                    } catch (error) {
+                        console.error(`클러스터 ${clusterId} 라벨링 실패:`, error);
+                        clusterLabels.set(clusterId, `📊 그룹 ${clusterId + 1}`);
+                    }
+                }
+                
+                updateClusterDisplay();
+                updateAIStatus(`OpenAI GPT 라벨링 완료 - ${clusterMap.size}개 클러스터 분석됨`);
+                
+            } catch (error) {
+                console.error('GPT 라벨링 오류:', error);
+                updateAIStatus(`GPT 라벨링 실패: ${error.message}`);
+            } finally {
+                labelBtn.disabled = false;
+                showLoading(false);
+            }
         }
 
+        // 자동 클러스터링 토글
         function autoCluster() {
-            const button = event.target;
+            const button = document.getElementById('autoBtn');
             if (autoClusterInterval) {
                 clearInterval(autoClusterInterval);
                 autoClusterInterval = null;
@@ -733,15 +461,15 @@
                 button.classList.add('btn-success');
                 updateAIStatus('자동 모드 비활성화됨');
             } else {
-                autoClusterInterval = setInterval(() => {
+                autoClusterInterval = setInterval(async () => {
                     if (words.size >= 3) {
-                        performClustering();
+                        await performRealClustering();
                     }
-                }, 8000);
+                }, 10000); // 10초마다
                 button.textContent = '자동 중지';
                 button.classList.remove('btn-success');
                 button.classList.add('btn-warning');
-                updateAIStatus('자동 모드 활성화 - 8초마다 재분석');
+                updateAIStatus('자동 모드 활성화 - 10초마다 실제 AI 분석');
             }
         }
 
@@ -751,18 +479,17 @@
                 wordVectors.clear();
                 clusters = [];
                 clusterLabels.clear();
+                silhouetteScore = 0;
                 nodes.clear();
                 edges.clear();
                 
                 if (autoClusterInterval) {
                     clearInterval(autoClusterInterval);
                     autoClusterInterval = null;
-                    const autoBtn = document.querySelector('.btn-success, .btn-warning');
-                    if (autoBtn) {
-                        autoBtn.textContent = '자동 모드';
-                        autoBtn.classList.remove('btn-warning');
-                        autoBtn.classList.add('btn-success');
-                    }
+                    const autoBtn = document.getElementById('autoBtn');
+                    autoBtn.textContent = '자동 모드';
+                    autoBtn.classList.remove('btn-warning');
+                    autoBtn.classList.add('btn-success');
                 }
                 
                 updateStats();
@@ -770,6 +497,266 @@
                 updateClusterDisplay();
                 updateAIStatus('그래프가 초기화되었습니다');
                 localStorage.removeItem('submittedWords');
+            }
+        }
+
+        // 실제 API를 사용한 하이브리드 유사도 계산
+        async function calculateRealSimilarity(word1, word2) {
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/hybrid-similarity`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        word1: word1,
+                        word2: word2
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return {
+                        similarity: data.hybrid_score,
+                        vector: data.vector_similarity,
+                        llm: data.llm_similarity,
+                        confidence: data.confidence
+                    };
+                }
+            } catch (error) {
+                console.error('실제 유사도 계산 실패:', error);
+            }
+            
+            // 실패시 기본 유사도
+            return { 
+                similarity: 0.3, 
+                vector: 0.3, 
+                llm: 0.3, 
+                confidence: 'low' 
+            };
+        }
+
+        // 모든 단어 간 연결 업데이트 (클러스터링 후)
+        async function updateAllConnections() {
+            if (words.size < 2) return;
+            
+            showLoading(true);
+            updateAIStatus('모든 단어 간 연관도 재계산 중...');
+            
+            try {
+                const wordArray = Array.from(words.keys());
+                const connections = [];
+                
+                // 모든 단어 쌍에 대해 유사도 계산
+                for (let i = 0; i < wordArray.length; i++) {
+                    for (let j = i + 1; j < wordArray.length; j++) {
+                        const result = await calculateRealSimilarity(wordArray[i], wordArray[j]);
+                        
+                        if (result.similarity > 0.3) { // 임계값 이상만 연결
+                            connections.push({
+                                from: wordArray[i],
+                                to: wordArray[j],
+                                similarity: result.similarity,
+                                confidence: result.confidence
+                            });
+                        }
+                    }
+                }
+                
+                // 기존 엣지 제거 후 새로운 연결 추가
+                edges.clear();
+                
+                connections.forEach(conn => {
+                    const edgeWidth = Math.max(1, Math.min(8, conn.similarity * 10));
+                    
+                    let edgeColor;
+                    if (conn.similarity >= 0.8) {
+                        edgeColor = '#dc2626'; // 매우 강한 연관성
+                    } else if (conn.similarity >= 0.6) {
+                        edgeColor = '#ea580c'; // 강한 연관성
+                    } else if (conn.similarity >= 0.4) {
+                        edgeColor = '#3b82f6'; // 보통 연관성
+                    } else {
+                        edgeColor = '#64748b'; // 약한 연관성
+                    }
+                    
+                    edges.add({
+                        id: `${conn.from}-${conn.to}`,
+                        from: conn.from,
+                        to: conn.to,
+                        label: `${(conn.similarity * 100).toFixed(1)}%`,
+                        width: edgeWidth,
+                        value: conn.similarity * 10,
+                        color: { 
+                            color: edgeColor, 
+                            opacity: 0.8,
+                            highlight: edgeColor,
+                            hover: '#3b82f6'
+                        },
+                        font: {
+                            size: Math.max(10, Math.min(14, edgeWidth + 8)),
+                            color: edgeColor,
+                            strokeWidth: 2,
+                            strokeColor: '#ffffff'
+                        },
+                        title: `연관도: ${(conn.similarity * 100).toFixed(1)}% (${conn.confidence} 신뢰도)`,
+                        smooth: {
+                            type: conn.similarity > 0.7 ? 'straightCross' : 'continuous'
+                        }
+                    });
+                });
+                
+                updateStats();
+                updateAIStatus(`${connections.length}개 연결 업데이트 완료`);
+                
+            } catch (error) {
+                console.error('연결 업데이트 실패:', error);
+                updateAIStatus(`연결 업데이트 실패: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 가장 유사한 단어 찾기 (실제 API 사용)
+        async function findMostSimilarWord(word) {
+            if (words.size === 0) return null;
+            
+            let maxSimilarity = -1;
+            let mostSimilarWord = null;
+            
+            for (const [existingWord] of words) {
+                const result = await calculateRealSimilarity(word, existingWord);
+                
+                if (result.similarity > maxSimilarity) {
+                    maxSimilarity = result.similarity;
+                    mostSimilarWord = existingWord;
+                }
+            }
+            
+            return { word: mostSimilarWord, similarity: maxSimilarity };
+        }
+
+        // 단어 추가 (실제 API 사용)
+        async function addWordToGraph(word) {
+            if (!word || word.trim() === '') return;
+            
+            word = word.trim();
+            const addBtn = document.getElementById('addWordBtn');
+            addBtn.disabled = true;
+            showLoading(true);
+            
+            try {
+                if (words.has(word)) {
+                    // 기존 단어 - 크기 증가
+                    const data = words.get(word);
+                    data.count++;
+                    data.size = Math.min(15 + data.count * 3, 50);
+                    
+                    nodes.update({
+                        id: word,
+                        size: data.size,
+                        title: `${word} (${data.count}회)`
+                    });
+                } else {
+                    // 새로운 단어 - 실제 API로 벡터화
+                    updateAIStatus(`"${word}" 실제 벡터화 중...`);
+                    
+                    try {
+                        const vectorResponse = await fetch(`${apiBaseUrl}/api/vectorize`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ word: word })
+                        });
+                        
+                        if (vectorResponse.ok) {
+                            const vectorData = await vectorResponse.json();
+                            wordVectors.set(word, vectorData.vector);
+                            updateAIStatus(`"${word}" KoSentenceBERT 벡터화 완료 (${vectorData.vector_dim}차원)`);
+                        }
+                    } catch (error) {
+                        console.error('벡터화 실패:', error);
+                    }
+                    
+                    // 가장 유사한 단어 찾기 (실제 하이브리드 분석)
+                    const mostSimilar = await findMostSimilarWord(word);
+                    const newWordData = { count: 1, size: 18, cluster: -1 };
+                    
+                    words.set(word, newWordData);
+                    
+                    // 노드 추가
+                    const colors = [
+                        '#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', 
+                        '#64748b', '#06b6d4', '#10b981', '#84cc16'
+                    ];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    nodes.add({
+                        id: word,
+                        label: word,
+                        size: 18,
+                        color: color,
+                        title: `${word} (1회)`,
+                        font: { color: '#1e293b' }
+                    });
+                    
+                    // 가장 유사한 단어와 연결
+                    if (mostSimilar && mostSimilar.similarity > 0.3) {
+                        // 유사도에 따른 엣지 굵기 계산 (1-8 범위)
+                        const edgeWidth = Math.max(1, Math.min(8, mostSimilar.similarity * 10));
+                        
+                        // 유사도에 따른 엣지 색상 강도
+                        let edgeColor;
+                        if (mostSimilar.similarity >= 0.8) {
+                            edgeColor = '#dc2626'; // 매우 강한 연관성 - 빨간색
+                        } else if (mostSimilar.similarity >= 0.6) {
+                            edgeColor = '#ea580c'; // 강한 연관성 - 주황색
+                        } else if (mostSimilar.similarity >= 0.4) {
+                            edgeColor = '#3b82f6'; // 보통 연관성 - 파란색
+                        } else {
+                            edgeColor = '#64748b'; // 약한 연관성 - 회색
+                        }
+                        
+                        edges.add({
+                            id: `${mostSimilar.word}-${word}`,
+                            from: mostSimilar.word,
+                            to: word,
+                            label: `${(mostSimilar.similarity * 100).toFixed(1)}%`,
+                            width: edgeWidth,
+                            value: mostSimilar.similarity * 10, // vis.js 자동 스케일링용
+                            color: { 
+                                color: edgeColor, 
+                                opacity: 0.8,
+                                highlight: edgeColor,
+                                hover: '#3b82f6'
+                            },
+                            font: {
+                                size: Math.max(10, Math.min(14, edgeWidth + 8)),
+                                color: edgeColor,
+                                strokeWidth: 2,
+                                strokeColor: '#ffffff'
+                            },
+                            title: `연관도: ${(mostSimilar.similarity * 100).toFixed(1)}% (${mostSimilar.confidence || 'medium'} 신뢰도)`,
+                            smooth: {
+                                type: mostSimilar.similarity > 0.7 ? 'straightCross' : 'continuous'
+                            }
+                        });
+                        
+                        updateAIStatus(`새 연결: "${word}" ↔ "${mostSimilar.word}" (${(mostSimilar.similarity * 100).toFixed(1)}%)`);
+                    }
+                }
+                
+                updateStats();
+                updateWordList();
+                updateAIStatus(`새 단어 "${word}" 추가 완료`);
+                
+            } catch (error) {
+                console.error('단어 추가 중 오류:', error);
+                updateAIStatus(`단어 추가 실패: ${error.message}`);
+            } finally {
+                addBtn.disabled = false;
+                showLoading(false);
             }
         }
 
@@ -797,14 +784,24 @@
                     }
                 },
                 edges: {
-                    width: 2,
-                    color: { color: '#64748b', opacity: 0.6 },
+                    color: { 
+                        color: '#64748b', 
+                        opacity: 0.8 
+                    },
                     smooth: {
-                        type: 'continuous'
+                        type: 'continuous',
+                        forceDirection: 'none',
+                        roundness: 0.1
                     },
                     font: {
-                        size: 10,
-                        color: '#64748b'
+                        size: 11,
+                        color: '#475569',
+                        strokeWidth: 2,
+                        strokeColor: '#ffffff'
+                    },
+                    scaling: {
+                        min: 1,
+                        max: 8
                     }
                 },
                 physics: {
@@ -813,376 +810,71 @@
                     barnesHut: {
                         gravitationalConstant: -8000,
                         springConstant: 0.001,
-                        springLength: 200
+                        springLength: 200,
+                        damping: 0.09
                     }
                 },
                 interaction: {
                     hover: true,
-                    tooltipDelay: 300
+                    tooltipDelay: 300,
+                    hoverConnectedEdges: true
                 }
             };
             
             network = new vis.Network(container, data, options);
-        }
-
-        // 고급 한국어 단어 임베딩 시뮬레이션
-        function generateAdvancedWordVector(word) {
-            const consonants = extractConsonants(word);
-            const vowels = extractVowels(word);
-            const syllableCount = word.length;
             
-            let hash = 0;
-            for (let i = 0; i < word.length; i++) {
-                const char = word.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            
-            const vector = [];
-            
-            // 음성학적 특성
-            for (let i = 0; i < 20; i++) {
-                vector.push(Math.sin(hash + i) * Math.cos(consonants.length + i));
-            }
-            
-            // 의미적 특성 
-            for (let i = 0; i < 20; i++) {
-                vector.push(Math.sin(syllableCount + i) * Math.cos(vowels.length + i * 2));
-            }
-            
-            // 문맥적 특성
-            for (let i = 0; i < 10; i++) {
-                vector.push(Math.tanh(hash * 0.001 + i) * Math.sin(i));
-            }
-            
-            return vector;
-        }
-
-        // 한국어 자음 추출
-        function extractConsonants(word) {
-            const consonants = [];
-            for (let char of word) {
-                const code = char.charCodeAt(0) - 0xAC00;
-                if (code >= 0 && code <= 11171) {
-                    const initial = Math.floor(code / 588);
-                    consonants.push(initial);
-                }
-            }
-            return consonants;
-        }
-
-        // 한국어 모음 추출
-        function extractVowels(word) {
-            const vowels = [];
-            for (let char of word) {
-                const code = char.charCodeAt(0) - 0xAC00;
-                if (code >= 0 && code <= 11171) {
-                    const vowel = Math.floor((code % 588) / 28);
-                    vowels.push(vowel);
-                }
-            }
-            return vowels;
-        }
-
-        // 코사인 유사도 계산
-        function cosineSimilarity(vecA, vecB) {
-            const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-            const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-            const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-            return dotProduct / (magnitudeA * magnitudeB);
-        }
-
-        // 하이브리드 유사도 계산 (벡터 + LLM)
-        async function hybridSimilarity(word1, word2) {
-            // 1단계: 벡터 기반 유사도
-            const vec1 = wordVectors.get(word1) || generateAdvancedWordVector(word1);
-            const vec2 = wordVectors.get(word2) || generateAdvancedWordVector(word2);
-            const vectorSim = cosineSimilarity(vec1, vec2);
-            
-            // 2단계: LLM 기반 의미적 유사도
-            const llmSim = await getLLMSimilarity(word1, word2);
-            
-            // 가중 평균 (벡터 70%, LLM 30%)
-            const hybridScore = vectorSim * 0.7 + llmSim * 0.3;
-            
-            return {
-                vector: vectorSim,
-                llm: llmSim,
-                hybrid: hybridScore,
-                confidence: Math.abs(vectorSim - llmSim) < 0.3 ? 'high' : 'medium'
-            };
-        }
-
-        // LLM 유사도 시뮬레이션
-        async function getLLMSimilarity(word1, word2) {
-            const cacheKey = `${word1}-${word2}`;
-            if (llmCache.has(cacheKey)) {
-                return llmCache.get(cacheKey);
-            }
-
-            const similarity = simulateLLMSimilarity(word1, word2);
-            llmCache.set(cacheKey, similarity);
-            
-            return similarity;
-        }
-
-        // LLM 유사도 시뮬레이션
-        function simulateLLMSimilarity(word1, word2) {
-            const semanticGroups = {
-                '동물': ['강아지', '고양이', '토끼', '햄스터', '새', '물고기', '코끼리', '사자', '호랑이', '곰', '여우', '늑대'],
-                '스포츠': ['축구', '야구', '농구', '테니스', '수영', '달리기', '골프', '배드민턴', '탁구', '권투'],
-                '음식': ['밥', '빵', '국수', '피자', '햄버거', '치킨', '떡볶이', '김치', '불고기', '냉면'],
-                '학교': ['교실', '선생님', '학생', '책', '연필', '칠판', '시험', '숙제', '공부', '친구'],
-                '가족': ['아빠', '엄마', '형', '누나', '동생', '할머니', '할아버지', '삼촌', '이모'],
-                '색깔': ['빨간색', '파란색', '노란색', '초록색', '검은색', '하얀색', '보라색', '주황색'],
-                '감정': ['기쁨', '슬픔', '화남', '사랑', '미움', '두려움', '놀람', '행복', '우울'],
-                '자연': ['나무', '꽃', '산', '바다', '강', '하늘', '구름', '비', '눈', '태양', '달'],
-                '교통': ['자동차', '버스', '지하철', '기차', '비행기', '배', '자전거', '오토바이'],
-                '전자기기': ['컴퓨터', '스마트폰', '텔레비전', '라디오', '냉장고', '세탁기', '에어컨']
-            };
-
-            // 같은 그룹에 속하면 높은 유사도
-            for (const group of Object.values(semanticGroups)) {
-                if (group.includes(word1) && group.includes(word2)) {
-                    return 0.8 + Math.random() * 0.15;
-                }
-            }
-
-            // 관련 그룹 간 유사도
-            const relatedGroups = [
-                ['동물', '자연'],
-                ['스포츠', '학교'],
-                ['음식', '가족'],
-                ['감정', '색깔']
-            ];
-
-            for (const [group1, group2] of relatedGroups) {
-                const inGroup1 = semanticGroups[group1]?.includes(word1) || semanticGroups[group1]?.includes(word2);
-                const inGroup2 = semanticGroups[group2]?.includes(word1) || semanticGroups[group2]?.includes(word2);
-                if (inGroup1 && inGroup2) {
-                    return 0.4 + Math.random() * 0.3;
-                }
-            }
-
-            // 음성적 유사도
-            if (word1.length > 0 && word2.length > 0) {
-                const phonetic = phoneticSimilarity(word1, word2);
-                return Math.max(phonetic, 0.1 + Math.random() * 0.3);
-            }
-
-            return 0.1 + Math.random() * 0.2;
-        }
-
-        // 음성적 유사도
-        function phoneticSimilarity(word1, word2) {
-            const consonants1 = extractConsonants(word1);
-            const consonants2 = extractConsonants(word2);
-            
-            let matches = 0;
-            const maxLen = Math.max(consonants1.length, consonants2.length);
-            
-            for (let i = 0; i < Math.min(consonants1.length, consonants2.length); i++) {
-                if (consonants1[i] === consonants2[i]) matches++;
-            }
-            
-            return maxLen > 0 ? matches / maxLen : 0;
-        }
-
-        // 가장 유사한 단어 찾기 (하이브리드)
-        async function findMostSimilarWord(word) {
-            if (words.size === 0) return null;
-            
-            let maxSimilarity = -1;
-            let mostSimilarWord = null;
-            
-            for (const [existingWord] of words) {
-                const hybridResult = await hybridSimilarity(word, existingWord);
-                
-                if (hybridResult.hybrid > maxSimilarity) {
-                    maxSimilarity = hybridResult.hybrid;
-                    mostSimilarWord = existingWord;
-                }
-            }
-            
-            return { word: mostSimilarWord, similarity: maxSimilarity };
-        }
-
-        // 단어 추가
-        async function addWordToGraph(word) {
-            if (!word || word.trim() === '') return;
-            
-            word = word.trim();
-            showLoading(true);
-            
-            try {
-                const wordVector = generateAdvancedWordVector(word);
-                
-                if (words.has(word)) {
-                    // 기존 단어 - 크기 증가
-                    const data = words.get(word);
-                    data.count++;
-                    data.size = Math.min(15 + data.count * 3, 50);
-                    
-                    nodes.update({
-                        id: word,
-                        size: data.size,
-                        title: `${word} (${data.count}회)`
+            // 엣지 호버 이벤트
+            network.on("hoverEdge", function (params) {
+                const edgeId = params.edge;
+                const edge = edges.get(edgeId);
+                if (edge) {
+                    // 호버시 엣지 하이라이트
+                    edges.update({
+                        id: edgeId,
+                        color: { color: '#3b82f6', opacity: 1.0 }
                     });
-                } else {
-                    // 새로운 단어
-                    const mostSimilar = await findMostSimilarWord(word);
-                    const newWordData = { count: 1, size: 18, cluster: -1 };
-                    
-                    words.set(word, newWordData);
-                    wordVectors.set(word, wordVector);
-                    
-                    // 노드 추가
-                    const colors = [
-                        '#3b82f6', // Blue Primary
-                        '#6366f1', // Indigo Secondary  
-                        '#0ea5e9', // Sky Accent
-                        '#8b5cf6', // Violet
-                        '#64748b', // Slate
-                        '#06b6d4', // Cyan
-                        '#10b981', // Emerald
-                        '#84cc16'  // Lime
-                    ];
-                    const color = colors[Math.floor(Math.random() * colors.length)];
-                    
-                    nodes.add({
-                        id: word,
-                        label: word,
-                        size: 18,
-                        color: color,
-                        title: `${word} (1회)`,
-                        font: { color: '#1e293b' }
+                }
+            });
+            
+            network.on("blurEdge", function (params) {
+                const edgeId = params.edge;
+                const edge = edges.get(edgeId);
+                if (edge) {
+                    // 호버 해제시 원래 색상으로
+                    edges.update({
+                        id: edgeId,
+                        color: { color: '#64748b', opacity: 0.8 }
                     });
-                    
-                    // 가장 유사한 단어와 연결
-                    if (mostSimilar && mostSimilar.similarity > 0.4) {
-                        edges.add({
-                            id: `${mostSimilar.word}-${word}`,
-                            from: mostSimilar.word,
-                            to: word,
-                            label: `${(mostSimilar.similarity * 100).toFixed(1)}%`,
-                            value: mostSimilar.similarity * 3,
-                            color: { color: '#64748b', opacity: 0.6 }
-                        });
-                    }
                 }
-                
-                updateStats();
-                updateWordList();
-                updateAIStatus(`새 단어 "${word}" 추가됨`);
-                
-            } catch (error) {
-                console.error('단어 추가 중 오류:', error);
-            } finally {
-                showLoading(false);
-            }
+            });
         }
 
-        // 클러스터 라벨 생성
-        function generateClusterLabel(wordsInCluster) {
-            const cacheKey = wordsInCluster.sort().join(',');
-            if (clusterLabels.has(cacheKey)) {
-                return clusterLabels.get(cacheKey);
-            }
-
-            const label = simulateClusterLabeling(wordsInCluster);
-            return label;
-        }
-
-        // 클러스터 라벨링 시뮬레이션
-        function simulateClusterLabeling(words) {
-            const categories = {
-                '🐾 동물': ['강아지', '고양이', '토끼', '햄스터', '새', '물고기', '코끼리', '사자', '호랑이'],
-                '⚽ 스포츠': ['축구', '야구', '농구', '테니스', '수영', '달리기', '골프', '배드민턴'],
-                '🍽️ 음식': ['밥', '빵', '국수', '피자', '햄버거', '치킨', '떡볶이', '김치'],
-                '🏫 교육': ['교실', '선생님', '학생', '책', '연필', '칠판', '시험', '공부'],
-                '👨‍👩‍👧‍👦 가족': ['아빠', '엄마', '형', '누나', '동생', '할머니', '할아버지'],
-                '🎨 색상': ['빨간색', '파란색', '노란색', '초록색', '검은색', '하얀색'],
-                '💚 감정': ['기쁨', '슬픔', '화남', '사랑', '행복', '우울'],
-                '🌿 자연': ['나무', '꽃', '산', '바다', '하늘', '구름']
-            };
-
-            // 카테고리별 매칭 점수 계산
-            let bestCategory = '기타';
-            let maxScore = 0;
-
-            for (const [category, keywords] of Object.entries(categories)) {
-                let score = 0;
-                for (const word of words) {
-                    for (const keyword of keywords) {
-                        if (word.includes(keyword) || keyword.includes(word)) {
-                            score += 1;
-                        }
-                    }
-                }
-                
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestCategory = category;
-                }
-            }
-
-            return bestCategory;
-        }
-
-        // K-means 클러스터링 구현
-        function kMeansClustering(vectors, k) {
-            if (vectors.length < k) k = vectors.length;
+        // 폴백 클러스터링 (API 실패시)
+        function performFallbackClustering() {
+            // 기본 시뮬레이션 클러스터링 로직
+            const wordArray = Array.from(words.keys());
+            clusters = wordArray.map((_, index) => index % 3); // 간단한 분할
             
-            const centroids = [];
-            const assignments = new Array(vectors.length);
-            
-            // 랜덤 중심점 초기화
-            for (let i = 0; i < k; i++) {
-                centroids.push(vectors[Math.floor(Math.random() * vectors.length)].slice());
-            }
-            
-            // 반복 수렴
-            for (let iter = 0; iter < 20; iter++) {
-                let changed = false;
+            // 시각적 업데이트
+            const clusterColors = ['#3b82f6', '#6366f1', '#0ea5e9'];
+            wordArray.forEach((word, index) => {
+                const clusterId = clusters[index];
+                const color = clusterColors[clusterId % clusterColors.length];
                 
-                // 할당 단계
-                for (let i = 0; i < vectors.length; i++) {
-                    let minDistance = Infinity;
-                    let bestCluster = 0;
-                    
-                    for (let j = 0; j < k; j++) {
-                        const distance = euclideanDistance(vectors[i], centroids[j]);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            bestCluster = j;
-                        }
+                nodes.update({
+                    id: word,
+                    color: {
+                        background: color,
+                        border: color,
+                        highlight: { background: color, border: '#1e293b' }
                     }
-                    
-                    if (assignments[i] !== bestCluster) {
-                        changed = true;
-                        assignments[i] = bestCluster;
-                    }
-                }
+                });
                 
-                if (!changed) break;
-                
-                // 중심점 업데이트
-                for (let j = 0; j < k; j++) {
-                    const clusterPoints = vectors.filter((_, i) => assignments[i] === j);
-                    if (clusterPoints.length > 0) {
-                        for (let dim = 0; dim < centroids[j].length; dim++) {
-                            centroids[j][dim] = clusterPoints.reduce((sum, point) => sum + point[dim], 0) / clusterPoints.length;
-                        }
-                    }
-                }
-            }
+                words.get(word).cluster = clusterId;
+            });
             
-            return assignments;
-        }
-
-        // 유클리드 거리 계산
-        function euclideanDistance(a, b) {
-            return Math.sqrt(a.reduce((sum, val, i) => sum + Math.pow(val - b[i], 2), 0));
+            updateClusterDisplay();
+            updateStats();
         }
 
         // 유틸리티 함수들
@@ -1201,7 +893,7 @@
             statusContent.innerHTML = `
                 <strong>${timestamp}</strong><br>
                 ${message}<br>
-                <small>벡터 임베딩 + GPT 하이브리드 활성</small>
+                <small>실제 KoSentenceBERT + OpenAI GPT</small>
             `;
         }
 
@@ -1215,6 +907,7 @@
             document.getElementById('uniqueWords').textContent = words.size;
             document.getElementById('totalClusters').textContent = new Set(Array.from(words.values()).map(d => d.cluster).filter(c => c !== -1)).size;
             document.getElementById('connectivity').textContent = connectivity + '%';
+            document.getElementById('silhouetteScore').textContent = silhouetteScore > 0 ? silhouetteScore.toFixed(3) : '-';
         }
 
         // 단어 목록 업데이트
@@ -1255,7 +948,7 @@
             }
             
             if (clusterMap.size === 0) {
-                container.innerHTML = '<p style="color: #64748b; font-size: 13px; text-align: center;">단어를 추가하고 군집화를 실행하세요</p>';
+                container.innerHTML = '<p style="color: #64748b; font-size: 13px; text-align: center;">단어를 추가하고 AI 군집화를 실행하세요</p>';
                 return;
             }
             
@@ -1274,12 +967,13 @@
                 clusterDiv.style.borderLeftColor = borderColor;
                 clusterDiv.innerHTML = `
                     <div class="cluster-title">
-                        <span class="cluster-emoji">${label.includes('�') ? '' : '📊'}</span>
+                        <span style="margin-right: 8px;">${label.includes('�') ? '📊' : ''}</span>
                         ${label}
                     </div>
                     <div class="cluster-words">${wordsInCluster.join(', ')}</div>
                     <div class="cluster-stats">
                         ${wordsInCluster.length}개 단어 | 평균 빈도: ${avgCount.toFixed(1)}
+                        ${silhouetteScore > 0 ? ` | 품질: ${silhouetteScore.toFixed(3)}` : ''}
                     </div>
                 `;
                 container.appendChild(clusterDiv);
@@ -1332,27 +1026,459 @@
             checkMode();
             
             if (window.location.search.includes('mode=submit')) {
-                // 제출 페이지 - 엔터키 이벤트는 HTML inline에서 처리
+                // 제출 페이지
                 return;
             }
             
             initNetwork();
             generateQR();
-            updateAIStatus('시스템 초기화 완료');
+            updateAIStatus('실제 AI 시스템 준비완료 - API 연결 테스트 필요');
+            
+            // API 연결 자동 테스트
+            testApiConnection();
             
             // 주기적으로 제출된 단어 확인
             setInterval(checkSubmittedWords, 2000);
             
-            // 메인 페이지 - 엔터키 이벤트는 HTML inline에서 처리
-            
-            // 샘플 데이터 추가
-            const sampleWords = ['강아지', '고양이', '축구', '야구', '학교', '친구'];
-            let delay = 500;
-            sampleWords.forEach(word => {
-                setTimeout(() => addWordToGraph(word), delay);
-                delay += 800;
-            });
+            // 샘플 데이터 추가 (API 연결 후)
+            setTimeout(() => {
+                const sampleWords = ['강아지', '고양이', '축구'];
+                let delay = 1000;
+                sampleWords.forEach(word => {
+                    setTimeout(() => addWordToGraph(word), delay);
+                    delay += 2000;
+                });
+            }, 3000);
         });
     </script>
 </body>
-</html>
+</html><!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>한국어 단어 그래프 - 실제 AI</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+            color: #1e293b;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: rgba(248, 250, 252, 0.95);
+            padding: 20px;
+            box-shadow: 2px 0 25px rgba(15, 23, 42, 0.1);
+            overflow-y: auto;
+            backdrop-filter: blur(15px);
+            border-right: 1px solid rgba(226, 232, 240, 0.3);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(248, 250, 252, 0.95);
+            padding: 20px;
+            box-shadow: 0 4px 25px rgba(15, 23, 42, 0.1);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.3);
+        }
+
+        .header h1 {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 24px;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .graph-container {
+            flex: 1;
+            background: rgba(248, 250, 252, 0.95);
+            margin: 15px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #network {
+            width: 100%;
+            height: 100%;
+            border-radius: 15px;
+        }
+
+        .api-config {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #f59e0b;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
+        }
+
+        .api-config h3 {
+            color: #92400e;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .api-config input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d97706;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .api-config button {
+            width: 100%;
+            padding: 8px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .qr-section {
+            text-align: center;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+
+        .qr-section h3 {
+            color: #475569;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .qr-code {
+            margin: 15px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .word-input {
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+
+        .word-input h3 {
+            color: #3b82f6;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .word-input input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 12px;
+            font-size: 16px;
+            background: #ffffff;
+            transition: all 0.3s ease;
+            color: #1e293b;
+        }
+
+        .word-input input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .word-input button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .word-input button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        }
+
+        .word-input button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ai-status {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(186, 230, 253, 0.5);
+            font-size: 13px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+
+        .ai-status-title {
+            font-weight: 600;
+            color: #3b82f6;
+            margin-bottom: 8px;
+        }
+
+        .ai-status-content {
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        .controls {
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+
+        .controls h3 {
+            color: #334155;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .controls button {
+            padding: 10px 16px;
+            margin: 6px 6px 6px 0;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .controls button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #4f46e5, #4338ca);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.3);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #64748b, #475569);
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: linear-gradient(135deg, #475569, #334155);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(100, 116, 139, 0.3);
+        }
+
+        .stats {
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+
+        .stats h3 {
+            color: #334155;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+            color: #64748b;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #3b82f6;
+        }
+
+        .clusters {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+
+        .clusters h3 {
+            color: #334155;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .cluster {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            border-left: 5px solid;
+            backdrop-filter: blur(5px);
+            transition: transform 0.2s ease;
+        }
+
+        .cluster:hover {
+            transform: translateX(5px);
+        }
+
+        .cluster-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .cluster-words {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .cluster-stats {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .word-list {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            padding: 20px;
+            border-radius: 16px;
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+
+        .word-list h3 {
+            color: #334155;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .word-item {
+            padding: 8px 12px;
+            margin: 4px 0;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s ease;
+        }
+
+        .word-item:hover {
+            transform: scale(1.02);
+        }
+
+        .word-count {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .submit-page {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        }
+
+        .submit-page.active {
+            display: flex
