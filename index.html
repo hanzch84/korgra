@@ -2636,13 +2636,8 @@
             // 큐 디스플레이 주기적 업데이트
             setInterval(updateQueueDisplay, 2000);
             
-            // 테스트 단어 추가 (첫 번째 단어 테스트)
-            setTimeout(() => {
-                updateAIStatus('🧪 첫 번째 단어 테스트 시작...');
-                const testInput = document.getElementById('wordInput');
-                testInput.value = '강아지';
-                addWord();
-            }, 3000);
+            // 시스템 준비 완료
+            updateAIStatus('✅ 시스템 준비 완료 - 단어를 입력해주세요');
         });
     </script>
 </body>
