@@ -798,26 +798,40 @@
         let autoClusterInterval = null;
         let isProcessing = false;
         let isProcessingQueue = false;
-        // 환경별 API URL 동적 설정 + 백엔드 선택
+        // 환경별 API URL 동적 설정 + 백엔드 선택 (디버깅 강화)
         let apiBaseUrl;
+        
+        // 현재 환경 감지
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isVercel = window.location.hostname.includes('vercel.app') || window.location.hostname.includes('vercel.com');
+        
+        console.log('🌍 환경 감지:');
+        console.log('- hostname:', window.location.hostname);
+        console.log('- isLocalhost:', isLocalhost);
+        console.log('- isVercel:', isVercel);
+        console.log('- origin:', window.location.origin);
         
         // 백엔드 옵션 설정
         const backendOptions = {
             local: 'http://localhost:8000',
-            railway: 'https://your-backend.railway.app',  // Railway 배포시 변경
-            render: 'https://your-backend.onrender.com',   // Render 배포시 변경
-            vercel: window.location.origin  // Vercel Serverless Functions
+            vercel: window.location.origin,  // Vercel Serverless Functions
+            fallback: 'https://korgra.vercel.app'  // 명시적 Vercel URL
         };
         
         // 환경별 자동 선택
-        if (window.location.hostname === 'localhost') {
+        if (isLocalhost) {
             apiBaseUrl = backendOptions.local;  // 로컬 개발
+            console.log('🏠 로컬 개발 모드');
+        } else if (isVercel) {
+            apiBaseUrl = backendOptions.vercel; // Vercel Functions
+            console.log('☁️ Vercel 프로덕션 모드');
         } else {
-            apiBaseUrl = backendOptions.vercel; // 프로덕션 (Vercel Functions)
-            // 다른 백엔드 사용시: apiBaseUrl = backendOptions.railway;
+            apiBaseUrl = backendOptions.fallback; // 기타 도메인
+            console.log('🌐 기타 도메인 - Vercel 백엔드 사용');
         }
         
-        console.log('선택된 백엔드:', apiBaseUrl);
+        console.log('🎯 선택된 백엔드 URL:', apiBaseUrl);
+        console.log('📡 API 엔드포인트 예시:', `${apiBaseUrl}/api/health`);
         let silhouetteScore = 0;
         let wordSimilarityCache = new Map();
         
@@ -2687,23 +2701,38 @@
             }
         }
 
-        // QR코드 생성 (최종 개선 버전)
-        function generateQR() {
+        // QR코드 생성 (완전 개선 버전)
+        async function generateQR() {
             try {
                 const baseUrl = window.location.origin + window.location.pathname;
                 const qrUrl = `${baseUrl}?mode=submit&session=${sessionId}&room=${Date.now()}`;
                 
-                // QRCode 라이브러리 실패 플래그 확인
-                if (window.QRCodeFailed) {
-                    console.log('QRCode 라이브러리 실패 플래그 감지 - 텍스트 QR 사용');
-                    generateTextQR();
-                    return;
+                console.log('🔗 QR URL 생성:', qrUrl);
+                
+                // QRCode 라이브러리 로딩 대기
+                if (!qrCodeLoaded) {
+                    console.log('⏳ QRCode 라이브러리 로딩 대기 중...');
+                    try {
+                        await loadQRCodeLibrary();
+                    } catch (error) {
+                        console.warn('QRCode 라이브러리 로딩 실패:', error.message);
+                        generateTextQR();
+                        return;
+                    }
                 }
                 
-                // QRCode 라이브러리 사용 가능한지 확인
+                // QRCode 라이브러리 사용 가능한지 재확인
                 if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
-                    console.log('QRCode 라이브러리 사용 가능 - 정상 QR 생성');
-                    QRCode.toCanvas(document.getElementById('qrcode'), qrUrl, { 
+                    console.log('✅ QRCode 라이브러리 사용 - Canvas QR 생성');
+                    
+                    const qrContainer = document.getElementById('qrcode');
+                    qrContainer.innerHTML = ''; // 기존 내용 제거
+                    
+                    // Canvas 요소 생성
+                    const canvas = document.createElement('canvas');
+                    qrContainer.appendChild(canvas);
+                    
+                    QRCode.toCanvas(canvas, qrUrl, { 
                         width: 120,
                         margin: 1,
                         color: {
@@ -2712,18 +2741,18 @@
                         }
                     }, function (error) {
                         if (error) {
-                            console.error('QR Canvas 생성 오류:', error);
+                            console.error('❌ QR Canvas 생성 오류:', error);
                             generateTextQR(); // 실패시 텍스트 QR
                         } else {
-                            console.log('QR 코드 생성 성공');
+                            console.log('✅ QR 코드 Canvas 생성 성공');
                         }
                     });
                 } else {
-                    console.warn('QRCode 라이브러리가 아직 로드되지 않음 - 1초 후 재시도');
-                    setTimeout(generateQR, 1000); // 1초 후 재시도
+                    console.warn('⚠️ QRCode 라이브러리 사용 불가 - 텍스트 QR 사용');
+                    generateTextQR();
                 }
             } catch (error) {
-                console.error('QR 생성 실패:', error);
+                console.error('❌ QR 생성 전체 실패:', error);
                 generateTextQR();
             }
         }
@@ -2741,38 +2770,57 @@
             }
         }
 
-        // API 상태 확인 및 임베딩 모델 테스트 (임베딩 기반)
+        // API 상태 확인 및 임베딩 모델 테스트 (강화된 디버깅)
         async function checkApiHealth() {
-            console.log('임베딩 API 연결 테스트 시작 - Base URL:', apiBaseUrl);
+            console.log('🔍 임베딩 API 연결 테스트 시작');
+            console.log('🌍 API Base URL:', apiBaseUrl);
+            console.log('📡 Health 엔드포인트:', `${apiBaseUrl}/api/health`);
             
             try {
+                updateAIStatus('🔄 Vercel Functions 연결 테스트 중...');
+                
                 const response = await fetch(`${apiBaseUrl}/api/health`, {
                     method: 'GET',
-                    timeout: 5000
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
                 });
+                
+                console.log('📊 Health API 응답 상태:', response.status);
+                console.log('📊 Health API 응답 헤더:', Object.fromEntries(response.headers.entries()));
                 
                 if (response.ok) {
                     const data = await response.json();
-                    updateAIStatus(`✅ 임베딩 API 연결됨 - OpenAI: ${data.sbert_loaded ? '✅' : '❌'} | Embedding: ${data.word2vec_loaded ? '✅' : '❌'} | ConceptNet: ${data.conceptnet_available ? '✅' : '❌'}`);
-                    console.log('임베딩 백엔드 API 연결 성공');
+                    console.log('✅ Health API 응답 데이터:', data);
+                    
+                    updateAIStatus(`✅ Vercel Functions 연결됨 - 환경: ${data.environment || 'unknown'} | OpenAI: ${data.sbert_loaded ? '✅' : '❌'}`);
+                    console.log('🎯 Vercel Serverless Functions 연결 성공');
                     
                     // 임베딩 테스트 실행
                     setTimeout(() => testEmbeddingSystem(), 1000);
+                    return true;
                 } else {
-                    throw new Error(`API 응답 오류: ${response.status}`);
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
             } catch (error) {
-                console.log('백엔드 임베딩 API 연결 실패 (예상됨):', error.message);
+                console.error('❌ Vercel Functions 연결 실패:', error);
+                console.log('🔄 ConceptNet 백업으로 전환 중...');
                 
-                // Vercel/클라우드 환경에서는 ConceptNet + 클라이언트 추론으로 백업
-                if (window.location.hostname !== 'localhost') {
-                    updateAIStatus('🌐 클라우드 모드: ConceptNet API + 브라우저 의미 추론 (임베딩 백업)');
+                // 환경별 메시지
+                if (error.message.includes('ERR_CONNECTION_REFUSED')) {
+                    updateAIStatus('⚠️ Vercel Functions 미배포 - ConceptNet 백업 모드');
+                } else if (error.message.includes('404')) {
+                    updateAIStatus('⚠️ API 엔드포인트 없음 - Functions 배포 확인 필요');
                 } else {
-                    updateAIStatus('🔄 로컬 개발 모드: ConceptNet API + 동적 의미 추론');
+                    updateAIStatus('🌐 백엔드 오프라인 - ConceptNet + 패턴 매칭 모드');
                 }
                 
-                // ConceptNet 연결 테스트
+                // ConceptNet 백업 테스트
                 setTimeout(() => testConceptNetConnection(), 1000);
+                return false;
             }
         }
 
