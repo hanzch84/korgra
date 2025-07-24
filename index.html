@@ -1,29 +1,80 @@
-// QRCode 백업 로딩 시스템
-        function loadQRCodeBackup() {
-            console.log('QRCode 백업 CDN 로딩 시도...');
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js';
-            script.onerror = () => {
-                console.warn('QRCode 백업 CDN도 실패 - 텍스트 QR 사용');
-                window.QRCode = null; // QRCode 사용 불가 표시
-            };
-            script.onload = () => {
-                console.log('QRCode 백업 CDN 로딩 성공');
-                setTimeout(generateQR, 500); // 다시 QR 생성 시도
-            };
-            document.head.appendChild(script);
+// 텍스트 QR 대안 (라이브러리 없이도 작동)
+        function generateTextQR() {
+            const qrContainer = document.getElementById('qrcode');
+            const baseUrl = window.location.origin + window.location.pathname;
+            const qrUrl = `${baseUrl}?mode=submit&session=${sessionId}&room=${Date.now()}`;
+            
+            qrContainer.innerHTML = `
+                <div style="
+                    width: 120px; 
+                    height: 120px; 
+                    background: #f8fafc; 
+                    border: 2px solid #3b82f6; 
+                    display: flex; 
+                    flex-direction: column;
+                    align-items: center; 
+                    justify-content: center;
+                    font-size: 10px;
+                    color: #3b82f6;
+                    text-align: center;
+                    border-radius: 8px;
+                    padding: 8px;
+                    box-sizing: border-box;
+                ">
+                    <div style="font-weight: bold; margin-bottom: 5px;">📱 학생 입력</div>
+                    <div style="word-break: break-all; line-height: 1.2;">
+                        ${qrUrl.replace(window.location.origin, '').substring(0, 30)}...
+                    </div>
+                    <button onclick="copyQRUrl('${qrUrl}')" style="
+                        margin-top: 8px; 
+                        padding: 4px 8px; 
+                        font-size: 9px; 
+                        background: #3b82f6; 
+                        color: white; 
+                        border: none; 
+                        border-radius: 4px;
+                        cursor: pointer;
+                    ">링크 복사</button>
+                </div>
+            `;
         }
 
-        //<!DOCTYPE html>
+        // QR URL 복사 기능
+        function copyQRUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('학생 입력 링크가 복사되었습니다!');
+            }).catch(() => {
+                prompt('이 링크를 복사하세요:', url);
+            });
+        }<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>실시간 한국어 NLP 의미적 연관 네트워크</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/standalone/umd/vis-network.min.js"></script>
-    <!-- QRCode 라이브러리 - 여러 CDN 대안 -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" 
-            onerror="console.warn('QRCode CDN 1 실패, 대안 시도'); loadQRCodeBackup()"></script>
+    <!-- QRCode 라이브러리 - 개선된 로딩 -->
+    <script>
+        // QRCode 라이브러리 로딩 관리
+        function loadQRCode() {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+            script.onload = () => console.log('QRCode 라이브러리 로딩 성공');
+            script.onerror = () => {
+                console.warn('QRCode 메인 CDN 실패, 백업 시도...');
+                const backupScript = document.createElement('script');
+                backupScript.src = 'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js';
+                backupScript.onload = () => console.log('QRCode 백업 CDN 로딩 성공');
+                backupScript.onerror = () => {
+                    console.warn('QRCode 모든 CDN 실패 - 텍스트 QR 사용');
+                    window.QRCodeFailed = true;
+                };
+                document.head.appendChild(backupScript);
+            };
+            document.head.appendChild(script);
+        }
+        loadQRCode();
+    </script>
     <!-- NLP 라이브러리 추가 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.10.0/tf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
@@ -2524,13 +2575,22 @@
             }
         }
 
-        // QR코드 생성
+        // QR코드 생성 (최종 개선 버전)
         function generateQR() {
             try {
                 const baseUrl = window.location.origin + window.location.pathname;
                 const qrUrl = `${baseUrl}?mode=submit&session=${sessionId}&room=${Date.now()}`;
                 
-                if (typeof QRCode !== 'undefined') {
+                // QRCode 라이브러리 실패 플래그 확인
+                if (window.QRCodeFailed) {
+                    console.log('QRCode 라이브러리 실패 플래그 감지 - 텍스트 QR 사용');
+                    generateTextQR();
+                    return;
+                }
+                
+                // QRCode 라이브러리 사용 가능한지 확인
+                if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+                    console.log('QRCode 라이브러리 사용 가능 - 정상 QR 생성');
                     QRCode.toCanvas(document.getElementById('qrcode'), qrUrl, { 
                         width: 120,
                         margin: 1,
@@ -2540,41 +2600,23 @@
                         }
                     }, function (error) {
                         if (error) {
-                            console.error('QR 생성 오류:', error);
-                            showQRError();
+                            console.error('QR Canvas 생성 오류:', error);
+                            generateTextQR(); // 실패시 텍스트 QR
+                        } else {
+                            console.log('QR 코드 생성 성공');
                         }
                     });
                 } else {
-                    console.warn('QRCode 라이브러리가 로드되지 않음');
-                    showQRError();
+                    console.warn('QRCode 라이브러리가 아직 로드되지 않음 - 1초 후 재시도');
+                    setTimeout(generateQR, 1000); // 1초 후 재시도
                 }
             } catch (error) {
                 console.error('QR 생성 실패:', error);
-                showQRError();
+                generateTextQR();
             }
         }
 
-        // QR 코드 오류시 대체 표시
-        function showQRError() {
-            const qrContainer = document.getElementById('qrcode');
-            qrContainer.innerHTML = `
-                <div style="
-                    width: 120px; 
-                    height: 120px; 
-                    background: #f1f5f9; 
-                    border: 2px dashed #64748b; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center;
-                    font-size: 11px;
-                    color: #64748b;
-                    text-align: center;
-                    border-radius: 8px;
-                ">
-                    QR 코드<br>생성 중...
-                </div>
-            `;
-        }
+
 
         // URL 파라미터 확인
         function checkMode() {
@@ -2587,40 +2629,59 @@
             }
         }
 
-        // API 상태 확인 및 NLP 모델 로딩 체크
+        // API 상태 확인 및 NLP 모델 로딩 체크 (개선된 버전)
         async function checkApiHealth() {
+            console.log('API 연결 테스트 시작 - Base URL:', apiBaseUrl);
+            
             try {
-                const response = await fetch(`${apiBaseUrl}/api/health`);
-                const data = await response.json();
+                const response = await fetch(`${apiBaseUrl}/api/health`, {
+                    method: 'GET',
+                    timeout: 5000
+                });
                 
-                if (data.status === 'healthy') {
+                if (response.ok) {
+                    const data = await response.json();
                     updateAIStatus(`✅ NLP API 연결됨 - SBERT: ${data.sbert_loaded ? '✅' : '❌'} | Word2Vec: ${data.word2vec_loaded ? '✅' : '❌'} | ConceptNet: ${data.conceptnet_available ? '✅' : '❌'}`);
+                    console.log('NLP 백엔드 API 연결 성공');
                 } else {
-                    updateAIStatus('⚠️ API 서버 응답 이상 - 로컬 의미 추론 모드');
+                    throw new Error(`API 응답 오류: ${response.status}`);
                 }
             } catch (error) {
-                // Vercel 환경에서는 ConceptNet + 동적 추론으로 완전 동작
-                updateAIStatus('🌐 클라우드 모드: ConceptNet API + 브라우저 의미 추론 (완전 기능)');
-                console.log('백엔드 API 대신 ConceptNet + 클라이언트 추론 사용:', error.message);
+                console.log('백엔드 API 연결 실패 (예상됨):', error.message);
+                
+                // Vercel/클라우드 환경에서는 ConceptNet + 클라이언트 추론으로 완전 동작
+                if (window.location.hostname !== 'localhost') {
+                    updateAIStatus('🌐 클라우드 모드: ConceptNet API + 브라우저 의미 추론 (완전 기능)');
+                } else {
+                    updateAIStatus('🔄 로컬 개발 모드: ConceptNet API + 동적 의미 추론');
+                }
+                
+                // ConceptNet 연결 테스트
+                setTimeout(() => testConceptNetConnection(), 1000);
             }
         }
 
-        // ConceptNet 연결 테스트
+        // ConceptNet 연결 테스트 (개선된 버전)
         async function testConceptNetConnection() {
+            console.log('ConceptNet API 연결 테스트 시작...');
+            
             try {
                 const testResponse = await fetch('https://api.conceptnet.io/c/ko/강아지', {
-                    signal: AbortSignal.timeout(3000)
+                    signal: AbortSignal.timeout(5000)
                 });
                 
                 if (testResponse.ok) {
                     updateAIStatus('🌐 ConceptNet API 연결 확인됨 - 실제 지식 그래프 사용 가능');
+                    console.log('ConceptNet API 연결 성공');
                     return true;
+                } else {
+                    throw new Error(`ConceptNet API 응답 오류: ${testResponse.status}`);
                 }
             } catch (error) {
-                updateAIStatus('🔄 ConceptNet 연결 실패 - 로컬 의미 추론 사용');
-                console.log('ConceptNet 연결 실패:', error);
+                console.warn('ConceptNet 연결 실패:', error.message);
+                updateAIStatus('🔄 오프라인 모드: 브라우저 내장 동적 의미 추론 사용');
+                return false;
             }
-            return false;
         }
 
         // 로컬 큐 확인 (테스트용 함수)
@@ -2643,10 +2704,10 @@
             initNetwork();
             initializeDataReceiver();
             
-            // QR코드 생성 (지연으로 라이브러리 로딩 대기)
+            // QR코드 생성 (라이브러리 로딩 기다림)
             setTimeout(() => {
                 generateQR();
-            }, 1000);
+            }, 2000); // 2초 대기로 라이브러리 로딩 완료 기다림
             
             updateAIStatus('NLP 라이브러리 시스템 준비완료');
             
@@ -2661,7 +2722,8 @@
             setInterval(updateQueueDisplay, 2000);
             
             // 시스템 준비 완료
-            updateAIStatus('✅ 시스템 준비 완료 - 단어를 입력해주세요');
+            updateAIStatus('✅ 시스템 준비 완료 - 단어를 입력하거나 QR로 학생 참여 가능');
+            console.log('시스템 초기화 완료 - 세션 ID:', sessionId);
         });
     </script>
 </body>
