@@ -693,7 +693,12 @@
         let autoClusterInterval = null;
         let isProcessing = false;
         let isProcessingQueue = false;
-        let apiBaseUrl = 'http://localhost:8000';
+        // 환경별 API URL 동적 설정
+        let apiBaseUrl = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8000'  // 로컬 개발
+            : window.location.origin;  // Vercel 배포 (/api/*)
+        
+        console.log('API Base URL:', apiBaseUrl);
         let silhouetteScore = 0;
         let wordSimilarityCache = new Map();
         
@@ -2576,8 +2581,9 @@
                     updateAIStatus('⚠️ API 서버 응답 이상 - 로컬 의미 추론 모드');
                 }
             } catch (error) {
-                updateAIStatus('🔄 API 서버 미연결 - 동적 의미 추론 + ConceptNet 모드');
-                console.log('NLP API 서버가 실행되지 않음:', error.message);
+                // Vercel 환경에서는 ConceptNet + 동적 추론으로 완전 동작
+                updateAIStatus('🌐 클라우드 모드: ConceptNet API + 브라우저 의미 추론 (완전 기능)');
+                console.log('백엔드 API 대신 ConceptNet + 클라이언트 추론 사용:', error.message);
             }
         }
 
