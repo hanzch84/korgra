@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>한국어 NLP 의미적 연관 네트워크</title>
+    <title>실시간 한국어 NLP 의미적 연관 네트워크</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.6/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
     <!-- NLP 라이브러리 추가 -->
@@ -578,7 +578,7 @@
             <div class="qr-fixed">
                 <h3>📱 학생 입력 QR</h3>
                 <div class="qr-code" id="qrcode"></div>
-                <p style="font-size: 11px; color: #666;">QR 스캔 → 의미 분석</p>
+                <p style="font-size: 11px; color: #666;">QR 스캔 → 우선순위 큐 전송</p>
                 <div class="queue-status">
                     <span id="queueCount">대기: 0개</span>
                     <span id="processingStatus">🟢 대기중</span>
@@ -586,9 +586,9 @@
             </div>
 
             <div class="word-queue">
-                <h3>⏰ 의미 분석 대기열</h3>
+                <h3>⏰ 우선순위 큐 (시간순)</h3>
                 <div id="wordQueue">
-                    <p style="color: #92400e; font-size: 12px; text-align: center;">의미 분석 대기 중...</p>
+                    <p style="color: #92400e; font-size: 12px; text-align: center;">우선순위 큐 대기 중...</p>
                 </div>
             </div>
 
@@ -657,14 +657,14 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="header">
-                <h1>🧠 한국어 NLP 기반 의미적 연관 네트워크</h1>
-                <p>ConceptNet API + SBERT + Word2Vec | 동적 의미 추론 | 실제 지식 그래프 활용</p>
+                <h1>🧠 실시간 한국어 NLP 의미적 연관 네트워크</h1>
+                <p>QR 코드 실시간 입력 | 우선순위 큐 처리 | ConceptNet + TensorFlow.js | 의미적 관계 분석</p>
             </div>
             
             <div class="graph-container">
                 <div id="network"></div>
                 <div class="loading-indicator" id="loadingIndicator">
-                    🧠 의미적 연관 분석 중...
+                    🔄 우선순위 큐 처리 중...
                 </div>
             </div>
         </div>
@@ -675,57 +675,156 @@
         <div class="submit-card">
             <h2>💬 단어 입력</h2>
             <input type="text" id="submitInput" placeholder="단어를 입력하세요" onkeypress="if(event.key==='Enter') submitWord()">
-            <button onclick="submitWord()">의미 분석에 전송</button>
+            <button onclick="submitWord()">우선순위 큐에 전송</button>
             <p style="margin-top: 20px; font-size: 14px; color: #666;">
-                입력한 단어는 의미적 연관 분석을 통해<br>실시간 그래프에 반영됩니다
+                입력한 단어는 발송시간을 기준으로<br>우선순위 큐에서 순차 처리됩니다
             </p>
         </div>
     </div>
 
     <script>
-        // 전역 변수
+        // 전역 변수 (실시간 통신 및 우선순위 큐)
         let words = new Map();
         let wordVectors = new Map();
         let nodes, edges, network;
         let clusters = [];
         let clusterLabels = new Map();
-        let sessionId = Math.random().toString(36).substr(2, 9);
+        let sessionId = generateUniqueSessionId(); // 고유 세션 ID 생성
         let autoClusterInterval = null;
         let isProcessing = false;
         let isProcessingQueue = false;
-        let wordQueue = [];
-        let apiBaseUrl = 'http://localhost:8000'; // 개발환경 기본값
+        let apiBaseUrl = 'http://localhost:8000';
         let silhouetteScore = 0;
         let wordSimilarityCache = new Map();
+        
+        // 전역 데이터 저장소 (실제 환경에서는 서버/WebSocket 사용)
+        let globalDataStore = new Map();
+        
+        // 고유 세션 ID 생성
+        function generateUniqueSessionId() {
+            const timestamp = Date.now().toString(36);
+            const random = Math.random().toString(36).substr(2, 5);
+            return `session_${timestamp}_${random}`;
+        }
+        
+        // 우선순위 큐 관리 클래스 (수정된 버전)
+        class WordPriorityQueue {
+            constructor() {
+                this.queue = [];
+            }
+            
+            // 시간 기준으로 삽입 (가장 빠른 시간이 우선순위 높음)
+            enqueue(timestamp, word, fullData = null) {
+                const item = { 
+                    timestamp, 
+                    word, 
+                    data: fullData || { word, timestamp },
+                    id: Date.now() + Math.random() 
+                };
+                
+                // 이진 탐색으로 적절한 위치 찾기
+                let left = 0;
+                let right = this.queue.length;
+                
+                while (left < right) {
+                    const mid = Math.floor((left + right) / 2);
+                    if (this.queue[mid].timestamp <= timestamp) {
+                        left = mid + 1;
+                    } else {
+                        right = mid;
+                    }
+                }
+                
+                this.queue.splice(left, 0, item);
+                console.log(`큐에 추가됨: "${word}" (위치: ${left}, 전체 큐 크기: ${this.queue.length})`);
+                return item.id;
+            }
+            
+            // 가장 오래된(빠른 시간) 항목 제거
+            dequeue() {
+                const item = this.queue.shift();
+                if (item) {
+                    console.log(`큐에서 제거됨: "${item.word}" (남은 큐 크기: ${this.queue.length})`);
+                }
+                return item;
+            }
+            
+            // 큐가 비어있는지 확인
+            isEmpty() {
+                return this.queue.length === 0;
+            }
+            
+            // 큐 크기
+            size() {
+                return this.queue.length;
+            }
+            
+            // 큐 전체 조회 (디버깅용)
+            getAll() {
+                return [...this.queue];
+            }
+            
+            // 큐 상태 디버깅
+            debug() {
+                console.log('=== 우선순위 큐 상태 ===');
+                console.log('크기:', this.queue.length);
+                this.queue.forEach((item, index) => {
+                    console.log(`${index + 1}. "${item.word}" (${new Date(item.timestamp).toLocaleTimeString()})`);
+                });
+                console.log('========================');
+            }
+        }
+        
+        // 전역 우선순위 큐 인스턴스
+        const priorityQueue = new WordPriorityQueue();
 
-        // 전역 함수들 (HTML에서 직접 호출)
+        // 전역 함수들 (HTML에서 직접 호출) - 우선순위 큐 통합
         async function addWord() {
             const input = document.getElementById('wordInput');
             const word = input.value.trim();
             
             if (word) {
-                await addWordToGraph(word);
+                // 메인 페이지 입력도 우선순위 큐에 추가 (교사 입력 표시)
+                const teacherSubmission = {
+                    word: word,
+                    timestamp: Date.now(),
+                    sessionId: sessionId,
+                    clientId: 'teacher_main_page',
+                    source: 'teacher' // 교사 입력 구분
+                };
+                
+                addToWordPriorityQueue(teacherSubmission);
                 input.value = '';
+                
+                updateAIStatus(`👩‍🏫 교사 입력: "${word}" → 우선순위 큐 추가`);
             }
         }
 
-        // QR 제출 페이지 함수
+        // QR 제출 페이지 함수 (실시간 데이터 전송)
         function submitWord() {
             const input = document.getElementById('submitInput');
             const word = input.value.trim();
             
             if (!word) return;
             
-            // 로컬 스토리지에 큐 방식으로 저장
-            const submission = {
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetSessionId = urlParams.get('session');
+            
+            if (!targetSessionId) {
+                alert('잘못된 접근입니다. QR 코드를 다시 스캔해주세요.');
+                return;
+            }
+            
+            // 데이터 준비 (발송시간이 우선순위)
+            const submissionData = {
                 word: word,
-                timestamp: Date.now(),
-                sessionId: sessionId
+                timestamp: Date.now(), // 발송시간
+                sessionId: targetSessionId,
+                clientId: Math.random().toString(36).substr(2, 9)
             };
             
-            const queue = JSON.parse(localStorage.getItem('wordQueue') || '[]');
-            queue.push(submission);
-            localStorage.setItem('wordQueue', JSON.stringify(queue));
+            // 실시간 데이터 전송 시뮬레이션 (실제로는 WebSocket/SSE 사용)
+            sendWordToMainPage(submissionData);
             
             input.value = '';
             
@@ -733,7 +832,10 @@
             const card = document.querySelector('.submit-card');
             const successMsg = document.createElement('div');
             successMsg.className = 'success-message';
-            successMsg.textContent = `"${word}" 단어가 전송되었습니다!`;
+            successMsg.innerHTML = `
+                <strong>"${word}" 전송 완료!</strong><br>
+                <small>발송시간: ${new Date(submissionData.timestamp).toLocaleTimeString()}</small>
+            `;
             card.appendChild(successMsg);
             
             setTimeout(() => {
@@ -742,67 +844,211 @@
                 }
             }, 3000);
         }
+        
+        // 메인 페이지로 데이터 전송 (실제 환경에서는 WebSocket 사용)
+        function sendWordToMainPage(data) {
+            try {
+                // 전역 데이터 저장소에 저장 (실제로는 서버 API 호출)
+                if (!globalDataStore.has(data.sessionId)) {
+                    globalDataStore.set(data.sessionId, []);
+                }
+                
+                const sessionData = globalDataStore.get(data.sessionId);
+                sessionData.push(data);
+                
+                // PostMessage API를 통한 크로스 윈도우 통신 시뮬레이션
+                // 실제로는 서버를 통한 실시간 통신
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'NEW_WORD_SUBMISSION',
+                        data: data
+                    }, '*');
+                }
+                
+                console.log('데이터 전송 완료:', data);
+                
+            } catch (error) {
+                console.error('데이터 전송 실패:', error);
+                alert('데이터 전송에 실패했습니다. 다시 시도해주세요.');
+            }
+        }
 
-        // 교사 화면 - 우선순위 큐 처리
-        async function processWordQueue() {
-            if (isProcessingQueue || wordQueue.length === 0) return;
+        // 메인 페이지 - 실시간 데이터 수신 및 우선순위 큐 처리
+        function initializeDataReceiver() {
+            // PostMessage 리스너 등록 (크로스 윈도우 통신)
+            window.addEventListener('message', function(event) {
+                if (event.data.type === 'NEW_WORD_SUBMISSION') {
+                    const submissionData = event.data.data;
+                    
+                    // 현재 세션의 데이터인지 확인
+                    if (submissionData.sessionId === sessionId) {
+                        addToWordPriorityQueue(submissionData);
+                    }
+                }
+            });
+            
+            // 폴링 방식으로 전역 데이터 저장소 확인 (백업)
+            setInterval(() => {
+                checkGlobalDataStore();
+            }, 1000);
+        }
+        
+        // 우선순위 큐에 데이터 추가 (출처 구분)
+        function addToWordPriorityQueue(submissionData) {
+            // 교사 입력은 약간의 우선순위 부여 (타임스탬프에서 1ms 빼기)
+            let adjustedTimestamp = submissionData.timestamp;
+            if (submissionData.source === 'teacher') {
+                adjustedTimestamp -= 1; // 교사 입력을 약간 앞서게
+            }
+            
+            const queueId = priorityQueue.enqueue(adjustedTimestamp, submissionData.word, submissionData);
+            
+            const sourceIcon = submissionData.source === 'teacher' ? '👩‍🏫' : '👨‍🎓';
+            const sourceText = submissionData.source === 'teacher' ? '교사' : '학생';
+            
+            updateAIStatus(`📥 ${sourceIcon} ${sourceText} 입력: "${submissionData.word}" (${new Date(submissionData.timestamp).toLocaleTimeString()})`);
+            updateQueueDisplay();
+            
+            // *** 핵심 수정: 큐 처리 시작 보장 ***
+            if (!isProcessingQueue) {
+                // 큐 처리가 시작되지 않았다면 즉시 시작
+                console.log('첫 번째 단어 - 큐 처리 시작');
+                setTimeout(() => {
+                    processWordPriorityQueue();
+                }, 100); // 약간의 지연으로 UI 업데이트 완료 후 처리
+            }
+            
+            console.log(`우선순위 큐 추가: [${adjustedTimestamp}, "${submissionData.word}"] (${sourceText})`);
+        }
+        
+        // 전역 데이터 저장소 확인 (폴링)
+        function checkGlobalDataStore() {
+            if (!globalDataStore.has(sessionId)) return;
+            
+            const sessionData = globalDataStore.get(sessionId);
+            const lastProcessedTime = parseInt(sessionStorage.getItem('lastProcessedTime') || '0');
+            
+            // 새로운 데이터만 처리
+            const newSubmissions = sessionData.filter(item => item.timestamp > lastProcessedTime);
+            
+            if (newSubmissions.length > 0) {
+                newSubmissions.forEach(submissionData => {
+                    addToWordPriorityQueue(submissionData);
+                });
+                
+                // 마지막 처리 시간 업데이트
+                const latestTime = Math.max(...newSubmissions.map(s => s.timestamp));
+                sessionStorage.setItem('lastProcessedTime', latestTime.toString());
+            }
+        }
+        
+        // *** 핵심 수정: 우선순위 큐 처리 로직 개선 ***
+        async function processWordPriorityQueue() {
+            console.log(`큐 처리 시작 - isProcessingQueue: ${isProcessingQueue}, 큐 크기: ${priorityQueue.size()}`);
+            
+            if (isProcessingQueue) {
+                console.log('이미 처리 중이므로 대기');
+                return;
+            }
+            
+            if (priorityQueue.isEmpty()) {
+                console.log('큐가 비어있음');
+                updateQueueStatus('🟢 대기중');
+                return;
+            }
             
             isProcessingQueue = true;
-            updateQueueStatus('🔄 NLP 분석중');
+            updateQueueStatus('🔄 우선순위 처리중');
             
-            // 힙큐에서 가장 빠른 시간의 단어 추출
-            const nextSubmission = wordQueue.shift(); // 가장 오래된 것부터 처리
-            
-            if (nextSubmission) {
-                // 큐 UI 업데이트
-                updateQueueDisplay();
+            try {
+                // 가장 오래된(빠른 시간) 데이터 추출
+                const nextItem = priorityQueue.dequeue();
                 
-                // 단어를 그래프에 추가 (NLP 분석 포함)
-                await addWordToGraph(nextSubmission.word);
-                
-                // 처리 완료 후 다음 단어 처리
+                if (nextItem) {
+                    const { timestamp, word } = nextItem;
+                    const submissionTime = new Date(timestamp);
+                    const processingDelay = Date.now() - timestamp;
+                    
+                    updateAIStatus(`⚡ 처리중: "${word}" (${submissionTime.toLocaleTimeString()}, ${processingDelay}ms 지연)`);
+                    
+                    // 큐 UI 업데이트
+                    updateQueueDisplay();
+                    
+                    // 단어 처리 (같은 단어면 크기 증가, 새 단어면 새 노드)
+                    await processWordSubmission(word, timestamp);
+                    
+                    updateAIStatus(`✅ 처리 완료: "${word}"`);
+                }
+            } catch (error) {
+                console.error('큐 처리 중 오류:', error);
+                updateAIStatus(`❌ 처리 오류: ${error.message}`);
+            } finally {
+                // 처리 완료 표시 및 다음 처리 준비
                 setTimeout(() => {
                     isProcessingQueue = false;
                     updateQueueStatus('🟢 대기중');
                     
-                    // 다음 단어가 있으면 계속 처리
-                    if (wordQueue.length > 0) {
-                        setTimeout(processWordQueue, 1000); // NLP 분석 시간 고려하여 1초 간격
+                    // *** 핵심: 다음 단어가 있으면 계속 처리 ***
+                    if (!priorityQueue.isEmpty()) {
+                        console.log('다음 단어 처리를 위해 재귀 호출');
+                        setTimeout(() => {
+                            processWordPriorityQueue();
+                        }, 800); // 0.8초 간격
+                    } else {
+                        console.log('큐 처리 완료 - 모든 단어 처리됨');
                     }
-                }, 1500); // 1.5초 대기 (API 호출 고려)
-            } else {
-                isProcessingQueue = false;
-                updateQueueStatus('🟢 대기중');
+                }, 1200); // 1.2초 대기 (NLP 분석 고려)
             }
         }
-
-        // 로컬 스토리지에서 큐 체크 (주기적)
-        function checkLocalQueue() {
-            const storedQueue = JSON.parse(localStorage.getItem('wordQueue') || '[]');
-            const lastProcessed = parseInt(localStorage.getItem('lastProcessedTime') || '0');
+        
+        // 단어 제출 처리 (중복 처리 포함)
+        async function processWordSubmission(word, timestamp) {
+            word = word.trim();
             
-            // 새로운 제출만 처리
-            const newSubmissions = storedQueue.filter(item => item.timestamp > lastProcessed);
-            
-            if (newSubmissions.length > 0) {
-                // 시간순으로 정렬 (빠른 것부터)
-                newSubmissions.sort((a, b) => a.timestamp - b.timestamp);
+            if (words.has(word)) {
+                // 기존 단어 - 크기 증가 및 통합
+                const existingData = words.get(word);
+                existingData.count++;
+                existingData.size = Math.min(15 + existingData.count * 4, 60); // 최대 크기 증가
+                existingData.lastSubmissionTime = timestamp;
                 
-                // 큐에 추가
-                newSubmissions.forEach(submission => {
-                    wordQueue.push(submission);
+                // 노드 업데이트 (크기 및 색상 강조)
+                const intensityColor = calculateIntensityColor(existingData.count);
+                nodes.update({
+                    id: word,
+                    size: existingData.size,
+                    color: intensityColor,
+                    title: `${word} (${existingData.count}회 제출)\n마지막: ${new Date(timestamp).toLocaleTimeString()}`
                 });
                 
-                updateQueueDisplay();
+                updateAIStatus(`🔄 기존 단어 강화: "${word}" (${existingData.count}회, 크기: ${existingData.size})`);
                 
-                // 마지막 처리 시간 업데이트
-                const latestTime = Math.max(...newSubmissions.map(s => s.timestamp));
-                localStorage.setItem('lastProcessedTime', latestTime.toString());
-                
-                // 큐 처리 시작
-                if (!isProcessingQueue) {
-                    processWordQueue();
-                }
+            } else {
+                // 새로운 단어 - 새 노드 생성 및 의미적 연결
+                updateAIStatus(`🆕 새 단어 분석 시작: "${word}"`);
+                await addWordToGraph(word);
+            }
+            
+            updateStats();
+            updateWordList();
+        }
+        
+        // 빈도에 따른 색상 강도 계산
+        function calculateIntensityColor(count) {
+            const baseColors = [
+                '#3b82f6', '#6366f1', '#0ea5e9', '#8b5cf6', 
+                '#64748b', '#06b6d4', '#10b981', '#84cc16'
+            ];
+            
+            // 빈도가 높을수록 더 진한 색상
+            if (count >= 5) {
+                return { background: '#dc2626', border: '#991b1b', highlight: { background: '#ef4444', border: '#7f1d1d' } };
+            } else if (count >= 3) {
+                return { background: '#ea580c', border: '#c2410c', highlight: { background: '#f97316', border: '#9a3412' } };
+            } else if (count >= 2) {
+                return { background: '#d97706', border: '#a16207', highlight: { background: '#f59e0b', border: '#78350f' } };
+            } else {
+                return baseColors[Math.floor(Math.random() * baseColors.length)];
             }
         }
 
@@ -814,33 +1060,39 @@
             }
         }
 
-        // 큐 디스플레이 업데이트
+        // *** 핵심 수정: 큐 디스플레이 업데이트 (변수명 통일) ***
         function updateQueueDisplay() {
             const queueEl = document.getElementById('wordQueue');
             const countEl = document.getElementById('queueCount');
             
+            // priorityQueue 사용 (WordPriorityQueue 클래스)
+            const currentQueue = priorityQueue.getAll();
+            
             if (countEl) {
-                countEl.textContent = `대기: ${wordQueue.length}개`;
+                countEl.textContent = `대기: ${currentQueue.length}개`;
             }
             
             if (queueEl) {
-                if (wordQueue.length === 0) {
+                if (currentQueue.length === 0) {
                     queueEl.innerHTML = '<p style="color: #92400e; font-size: 12px; text-align: center;">의미 분석 대기 중...</p>';
                 } else {
                     queueEl.innerHTML = '';
                     
                     // 최대 5개까지만 표시
-                    const displayQueue = wordQueue.slice(0, 5);
+                    const displayQueue = currentQueue.slice(0, 5);
                     
-                    displayQueue.forEach((submission, index) => {
+                    displayQueue.forEach((queueItem, index) => {
                         const item = document.createElement('div');
                         item.className = index === 0 ? 'queue-item processing' : 'queue-item';
                         
-                        const timeStr = new Date(submission.timestamp).toLocaleTimeString();
-                        const waitTime = Math.round((Date.now() - submission.timestamp) / 1000);
+                        const timeStr = new Date(queueItem.timestamp).toLocaleTimeString();
+                        const waitTime = Math.round((Date.now() - queueItem.timestamp) / 1000);
+                        
+                        // 교사/학생 구분 표시
+                        const sourceIcon = queueItem.data?.source === 'teacher' ? '👩‍🏫' : '👨‍🎓';
                         
                         item.innerHTML = `
-                            <span>${submission.word}</span>
+                            <span>${sourceIcon} ${queueItem.word}</span>
                             <div class="queue-time">
                                 ${timeStr}<br>
                                 <small>${waitTime}초 전</small>
@@ -850,10 +1102,10 @@
                         queueEl.appendChild(item);
                     });
                     
-                    if (wordQueue.length > 5) {
+                    if (currentQueue.length > 5) {
                         const moreItem = document.createElement('div');
                         moreItem.style.cssText = 'text-align: center; color: #64748b; font-size: 11px; padding: 5px;';
-                        moreItem.textContent = `+${wordQueue.length - 5}개 더...`;
+                        moreItem.textContent = `+${currentQueue.length - 5}개 더...`;
                         queueEl.appendChild(moreItem);
                     }
                 }
@@ -1037,13 +1289,19 @@
         }
 
         function clearGraph() {
-            if (confirm('그래프를 초기화하시겠습니까?')) {
+            if (confirm('그래프와 우선순위 큐를 모두 초기화하시겠습니까?')) {
                 words.clear();
                 wordVectors.clear();
                 clusters = [];
                 clusterLabels.clear();
                 silhouetteScore = 0;
-                wordQueue = [];
+                
+                // 우선순위 큐 초기화
+                priorityQueue.queue = [];
+                
+                // 전역 데이터 저장소 초기화
+                globalDataStore.clear();
+                
                 nodes.clear();
                 edges.clear();
                 
@@ -1060,9 +1318,12 @@
                 updateWordList();
                 updateClusterDisplay();
                 updateQueueDisplay();
-                updateAIStatus('그래프가 초기화되었습니다');
-                localStorage.removeItem('wordQueue');
-                localStorage.removeItem('lastProcessedTime');
+                updateAIStatus('시스템 완전 초기화 완료');
+                
+                // 세션 저장소 초기화
+                sessionStorage.removeItem('lastProcessedTime');
+                
+                console.log('시스템 초기화 완료 - 새로운 세션 ID:', sessionId);
             }
         }
 
@@ -2130,10 +2391,11 @@
             `;
         }
 
-        // 개선된 통계 업데이트 (연결 분포 포함)
+        // 개선된 통계 업데이트 (우선순위 큐 정보 포함)
         function updateStats() {
             const totalCount = Array.from(words.values()).reduce((sum, data) => sum + data.count, 0);
             const connectionCount = edges.length;
+            const queueSize = priorityQueue.size();
             
             // 연결 분포 계산
             const connectionDist = new Map();
@@ -2157,7 +2419,13 @@
             document.getElementById('totalWords').textContent = totalCount;
             document.getElementById('uniqueWords').textContent = words.size;
             document.getElementById('totalClusters').textContent = new Set(Array.from(words.values()).map(d => d.cluster).filter(c => c !== -1)).size;
-            document.getElementById('connectivity').textContent = `${connectivity}% (${isolatedNodes}개 외톨이)`;
+            
+            // 연결성에 큐 정보 추가
+            const connectivityText = queueSize > 0 ? 
+                `${connectivity}% (큐: ${queueSize}개 대기)` : 
+                `${connectivity}% (${isolatedNodes}개 독립)`;
+            document.getElementById('connectivity').textContent = connectivityText;
+            
             document.getElementById('silhouetteScore').textContent = silhouetteScore > 0 ? 
                 silhouetteScore.toFixed(3) : 
                 `${avgConnections.toFixed(1)}개/노드 (의미적)`;
@@ -2331,6 +2599,15 @@
             return false;
         }
 
+        // 로컬 큐 확인 (테스트용 함수)
+        function checkLocalQueue() {
+            // 개발 및 디버깅을 위한 주기적 큐 상태 체크
+            if (priorityQueue.size() > 0 && !isProcessingQueue) {
+                console.log('주기적 체크: 큐에 데이터 있지만 처리 중이 아님 - 처리 시작');
+                processWordPriorityQueue();
+            }
+        }
+
         // 초기화 및 이벤트 리스너
         document.addEventListener('DOMContentLoaded', function() {
             checkMode();
@@ -2340,6 +2617,7 @@
             }
             
             initNetwork();
+            initializeDataReceiver();
             
             // QR코드 생성 (지연으로 라이브러리 로딩 대기)
             setTimeout(() => {
@@ -2358,66 +2636,14 @@
             // 큐 디스플레이 주기적 업데이트
             setInterval(updateQueueDisplay, 2000);
             
-        // 실제 NLP 테스트용 샘플 데이터 (사전 정의되지 않은 단어 포함)
+            // 테스트 단어 추가 (첫 번째 단어 테스트)
             setTimeout(() => {
-                const nlpTestSamples = [
-                    // 사전 정의된 단어들 (기존 시스템 테스트)
-                    '강아지', '고양이', '토끼',
-                    
-                    // 사전 정의되지 않은 동물들 (ConceptNet/동적추론 테스트)
-                    '판다', '기린', '코알라',
-                    
-                    // 스포츠 관련 (일부만 사전 정의)
-                    '축구', '배구', '스케이트',
-                    
-                    // 완전히 새로운 카테고리 (NLP 라이브러리 의존)
-                    '바이올린', '피아노', '드럼',     // 악기
-                    '의사', '간호사', '교사',        // 직업
-                    '서울', '부산', '대구',          // 도시
-                    
-                    // 추상적 개념 (고급 의미 분석 필요)
-                    '자유', '평화', '정의',
-                    
-                    // 혼합 테스트
-                    '스마트폰', '인터넷', '소셜미디어'
-                ];
-                
-                let delay = 1000;
-                nlpTestSamples.forEach((word, index) => {
-                    setTimeout(async () => {
-                        await addWordToGraph(word);
-                        
-                        // 각 그룹별 의미적 연관 분석
-                        if (index === 5) { // 동물 그룹 완료
-                            setTimeout(() => {
-                                updateAIStatus('🔍 동물 그룹 의미적 연관 분석 (사전정의 vs 동적추론)');
-                            }, 500);
-                        } else if (index === 8) { // 스포츠 그룹 완료
-                            setTimeout(() => {
-                                updateAIStatus('🏃 스포츠 그룹 의미적 연관 분석');
-                            }, 500);
-                        } else if (index === 11) { // 악기 그룹 완료
-                            setTimeout(() => {
-                                updateAIStatus('🎵 새로운 카테고리(악기) NLP 분석');
-                            }, 500);
-                        } else if (index === 14) { // 직업 그룹 완료
-                            setTimeout(() => {
-                                updateAIStatus('👩‍⚕️ 직업 카테고리 의미적 연관 분석');
-                            }, 500);
-                        }
-                    }, delay);
-                    delay += 1800; // 조금 더 여유롭게 (API 호출 고려)
-                });
+                updateAIStatus('🧪 첫 번째 단어 테스트 시작...');
+                const testInput = document.getElementById('wordInput');
+                testInput.value = '강아지';
+                addWord();
             }, 3000);
-            
-            // NLP 기반 의미적 네트워크 최종 분석
-            setTimeout(() => {
-                if (words.size >= 15) {
-                    console.log('NLP 기반 의미적 네트워크 최종 분석 시작');
-                    updateAllConnections();
-                }
-            }, 45000); // 45초 후 최종 분석 (API 호출 시간 고려)
         });
     </script>
 </body>
-</html> '
+</html>
