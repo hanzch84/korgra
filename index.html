@@ -607,7 +607,7 @@
                 <h3>🎛️ 실제 AI 제어</h3>
                 <button class="btn-primary" onclick="performRealClustering()" id="clusterBtn">실제 AI 군집화</button>
                 <button class="btn-secondary" onclick="generateRealLabels()" id="labelBtn">GPT 라벨링</button>
-                <button class="btn-success" onclick="updateAllConnections()" id="connectionBtn">연결 재분석</button>
+                <button class="btn-success" onclick="updateAllConnections()" id="connectionBtn">네트워크 최적화</button>
                 <button class="btn-success" onclick="autoCluster()" id="autoBtn">자동 모드</button>
                 <button class="btn-warning" onclick="clearGraph()">초기화</button>
             </div>
@@ -1063,12 +1063,12 @@
             }
         }
 
-        // 모든 단어 간 연결 업데이트 (가장 유사한 것만)
+        // 개선된 네트워크 연결 분석 (연결 분산 및 외톨이 방지)
         async function updateAllConnections() {
             if (words.size < 2) return;
             
             showLoading(true);
-            updateAIStatus('단어별 최고 연관도 계산 중...');
+            updateAIStatus('네트워크 최적화 및 연결 분산 분석 중...');
             
             try {
                 const wordArray = Array.from(words.keys());
@@ -1076,52 +1076,109 @@
                 // 기존 엣지 제거
                 edges.clear();
                 
-                // 각 단어에 대해 가장 유사한 단어 하나씩만 연결
-                for (const word of wordArray) {
-                    let maxSimilarity = -1;
-                    let mostSimilarWord = null;
-                    
-                    for (const otherWord of wordArray) {
-                        if (word === otherWord) continue;
+                // 모든 단어 쌍의 유사도 계산
+                const similarityMatrix = new Map();
+                const connectionCounts = new Map();
+                
+                // 초기화
+                wordArray.forEach(word => connectionCounts.set(word, 0));
+                
+                for (let i = 0; i < wordArray.length; i++) {
+                    for (let j = i + 1; j < wordArray.length; j++) {
+                        const word1 = wordArray[i];
+                        const word2 = wordArray[j];
                         
                         let similarity;
                         try {
-                            // API 사용 시도
-                            const result = await calculateRealSimilarity(word, otherWord);
+                            const result = await calculateRealSimilarity(word1, word2);
                             similarity = result.similarity;
                         } catch (error) {
-                            // API 실패시 기본 계산
-                            if (wordVectors.has(word) && wordVectors.has(otherWord)) {
-                                similarity = calculateVectorSimilarity(word, otherWord);
+                            if (wordVectors.has(word1) && wordVectors.has(word2)) {
+                                similarity = calculateVectorSimilarity(word1, word2);
                             } else {
-                                similarity = calculateBasicSimilarity(word, otherWord);
+                                similarity = calculateBasicSimilarity(word1, word2);
                             }
                         }
                         
-                        if (similarity > maxSimilarity) {
-                            maxSimilarity = similarity;
-                            mostSimilarWord = otherWord;
-                        }
-                    }
-                    
-                    // 임계값 이상이고 가장 유사한 단어와 연결
-                    if (mostSimilarWord && maxSimilarity > 0.3) {
-                        const edgeId = `${word}-${mostSimilarWord}`;
-                        const reverseEdgeId = `${mostSimilarWord}-${word}`;
-                        
-                        // 중복 연결 방지
-                        if (!edges.get(edgeId) && !edges.get(reverseEdgeId)) {
-                            addEdgeWithSimilarity(word, mostSimilarWord, maxSimilarity, 'high');
-                        }
+                        const pairKey = `${word1}-${word2}`;
+                        similarityMatrix.set(pairKey, { word1, word2, similarity });
                     }
                 }
                 
+                // 유사도 순으로 정렬
+                const sortedPairs = Array.from(similarityMatrix.values()).sort((a, b) => b.similarity - a.similarity);
+                
+                // 균형잡힌 연결 생성 (각 노드 최대 3개, 최소 1개 연결)
+                const maxConnectionsPerNode = Math.min(3, Math.ceil(wordArray.length / 2));
+                const minConnectionsPerNode = 1;
+                
+                // 동적 임계값 계산
+                const avgSimilarity = sortedPairs.reduce((sum, pair) => sum + pair.similarity, 0) / sortedPairs.length;
+                const dynamicThreshold = Math.max(0.2, avgSimilarity - 0.15);
+                
+                let connectionsCreated = 0;
+                
+                // 고유사도 연결부터 생성
+                for (const pair of sortedPairs) {
+                    const { word1, word2, similarity } = pair;
+                    
+                    if (similarity < dynamicThreshold) break;
+                    
+                    const count1 = connectionCounts.get(word1);
+                    const count2 = connectionCounts.get(word2);
+                    
+                    // 두 노드 모두 최대 연결 수를 초과하지 않은 경우에만 연결
+                    if (count1 < maxConnectionsPerNode && count2 < maxConnectionsPerNode) {
+                        addEdgeWithSimilarity(word1, word2, similarity, 'high');
+                        connectionCounts.set(word1, count1 + 1);
+                        connectionCounts.set(word2, count2 + 1);
+                        connectionsCreated++;
+                    }
+                }
+                
+                // 외톨이 노드 강제 연결 (최소 연결 보장)
+                const isolatedNodes = wordArray.filter(word => connectionCounts.get(word) === 0);
+                
+                for (const isolatedWord of isolatedNodes) {
+                    // 가장 유사한 단어 중 연결 가능한 것 찾기
+                    let bestMatch = null;
+                    let bestSimilarity = -1;
+                    
+                    for (const otherWord of wordArray) {
+                        if (otherWord === isolatedWord) continue;
+                        if (connectionCounts.get(otherWord) >= maxConnectionsPerNode) continue;
+                        
+                        const pairKey1 = `${isolatedWord}-${otherWord}`;
+                        const pairKey2 = `${otherWord}-${isolatedWord}`;
+                        const pair = similarityMatrix.get(pairKey1) || similarityMatrix.get(pairKey2);
+                        
+                        if (pair && pair.similarity > bestSimilarity) {
+                            bestSimilarity = pair.similarity;
+                            bestMatch = otherWord;
+                        }
+                    }
+                    
+                    // 강제 연결
+                    if (bestMatch) {
+                        addEdgeWithSimilarity(isolatedWord, bestMatch, bestSimilarity, 'forced');
+                        connectionCounts.set(isolatedWord, connectionCounts.get(isolatedWord) + 1);
+                        connectionCounts.set(bestMatch, connectionCounts.get(bestMatch) + 1);
+                        connectionsCreated++;
+                        updateAIStatus(`🔗 외톨이 방지: "${isolatedWord}" ↔ "${bestMatch}" (${(bestSimilarity * 100).toFixed(1)}%)`);
+                    }
+                }
+                
+                // 연결 통계
+                const avgConnections = connectionsCreated * 2 / wordArray.length;
+                const minConnections = Math.min(...Array.from(connectionCounts.values()));
+                const maxConnections = Math.max(...Array.from(connectionCounts.values()));
+                
                 updateStats();
-                updateAIStatus(`${edges.length}개 최적 연결 생성 완료`);
+                updateAIStatus(`✅ 네트워크 최적화 완료: ${connectionsCreated}개 연결 | 평균 ${avgConnections.toFixed(1)}개/노드 | 범위 ${minConnections}-${maxConnections}`);
                 
             } catch (error) {
                 console.error('연결 업데이트 실패:', error);
-                updateAIStatus(`연결 업데이트 실패: ${error.message}`);
+                updateAIStatus(`❌ 연결 업데이트 실패: ${error.message}`);
             } finally {
                 showLoading(false);
             }
@@ -1220,18 +1277,6 @@
                         updateAIStatus(`🔄 "${word}" 기본 벡터 생성 완료`);
                     }
                     
-                    // 🎯 핵심: 기존 단어들 중 가장 유사한 단어 1개 찾기
-                    let mostSimilar = null;
-                    if (words.size > 0) {
-                        try {
-                            mostSimilar = await findMostSimilarWordAPI(word);
-                            updateAIStatus(`🔍 AI 분석: "${word}"과 가장 유사한 단어는 "${mostSimilar?.word}" (${(mostSimilar?.similarity * 100).toFixed(1)}%)`);
-                        } catch (error) {
-                            mostSimilar = findMostSimilarWordBasic(word);
-                            updateAIStatus(`🔍 기본 분석: "${word}"과 가장 유사한 단어는 "${mostSimilar?.word}" (${(mostSimilar?.similarity * 100).toFixed(1)}%)`);
-                        }
-                    }
-                    
                     const newWordData = { count: 1, size: 18, cluster: -1 };
                     words.set(word, newWordData);
                     
@@ -1251,17 +1296,55 @@
                         font: { color: '#1e293b' }
                     });
                     
-                    // 🔗 가장 유사한 단어 하나만 연결 (임계값 0.2 이상)
-                    if (mostSimilar && mostSimilar.similarity > 0.2) {
-                        addEdgeWithSimilarity(
-                            mostSimilar.word, 
-                            word, 
-                            mostSimilar.similarity, 
-                            'high'
-                        );
-                        updateAIStatus(`✅ 새 연결: "${mostSimilar.word}" ↔ "${word}" (${(mostSimilar.similarity * 100).toFixed(1)}%)`);
-                    } else {
-                        updateAIStatus(`ℹ️ "${word}"는 기존 단어들과 유사도가 낮아 독립 노드로 생성`);
+                    // 🔗 개선된 다중 연결 시스템 (ConceptNet/WordNet 방식)
+                    if (words.size > 0) {
+                        const existingWords = Array.from(words.keys());
+                        const connections = [];
+                        
+                        // 모든 기존 단어와 유사도 계산
+                        for (const existingWord of existingWords) {
+                            let similarity;
+                            if (wordVectors.has(word) && wordVectors.has(existingWord)) {
+                                similarity = calculateVectorSimilarity(word, existingWord);
+                            } else {
+                                similarity = calculateBasicSimilarity(word, existingWord);
+                            }
+                            
+                            connections.push({
+                                word: existingWord,
+                                similarity: similarity
+                            });
+                        }
+                        
+                        // 유사도 순으로 정렬
+                        connections.sort((a, b) => b.similarity - a.similarity);
+                        
+                        // 동적 임계값 계산 (외톨이 방지)
+                        const avgSimilarity = connections.reduce((sum, conn) => sum + conn.similarity, 0) / connections.length;
+                        const dynamicThreshold = Math.max(0.15, Math.min(0.4, avgSimilarity - 0.1));
+                        
+                        // 상위 유사도 연결들 선택 (최대 3개, 최소 1개)
+                        const validConnections = connections.filter(conn => conn.similarity > dynamicThreshold);
+                        const selectedConnections = validConnections.slice(0, Math.min(3, Math.max(1, validConnections.length)));
+                        
+                        // 연결이 없으면 가장 유사한 1개라도 연결
+                        if (selectedConnections.length === 0 && connections.length > 0) {
+                            selectedConnections.push(connections[0]);
+                            updateAIStatus(`⚠️ "${word}" 낮은 유사도로 강제 연결: ${connections[0].word} (${(connections[0].similarity * 100).toFixed(1)}%)`);
+                        }
+                        
+                        // 선택된 연결들 생성
+                        selectedConnections.forEach((conn, index) => {
+                            addEdgeWithSimilarity(conn.word, word, conn.similarity, 'high');
+                            
+                            if (index === 0) {
+                                updateAIStatus(`✅ 주연결: "${conn.word}" ↔ "${word}" (${(conn.similarity * 100).toFixed(1)}%)`);
+                            } else {
+                                updateAIStatus(`🔗 부연결: "${conn.word}" ↔ "${word}" (${(conn.similarity * 100).toFixed(1)}%)`);
+                            }
+                        });
+                        
+                        updateAIStatus(`📊 "${word}" 총 ${selectedConnections.length}개 연결 생성 (임계값: ${(dynamicThreshold * 100).toFixed(1)}%)`);
                     }
                 }
                 
@@ -1435,74 +1518,237 @@
             return Math.max(0, Math.min(1, (cosineSim + 1) / 2));
         }
 
-        // 기본 유사도 계산 (개선된 버전)
+        // 개선된 기본 유사도 계산 (TF-IDF + 하이브리드 방식)
         function calculateBasicSimilarity(word1, word2) {
-            // 한국어 단어 특성을 고려한 유사도 계산
+            // 1. n-gram 유사도 (FastText 방식)
+            const ngramSim = calculateNgramSimilarity(word1, word2);
             
-            // 1. 공통 문자 비율 (자카드 유사도)
+            // 2. 의미적 그룹 유사도 (ConceptNet 방식)
+            const semanticSim = getSemanticSimilarity(word1, word2);
+            
+            // 3. 음성적 유사도 (개선된 버전)
+            const phoneticSim = getPhoneticSimilarity(word1, word2);
+            
+            // 4. 구조적 유사도 (길이, 패턴)
+            const structuralSim = getStructuralSimilarity(word1, word2);
+            
+            // 5. 자모 유사도 (한국어 특화)
+            const jamoSim = getJamoSimilarity(word1, word2);
+            
+            // 가중 평균 (의미적 유사도를 가장 중요하게)
+            const weights = {
+                semantic: 0.4,    // 의미적 유사도
+                ngram: 0.25,      // n-gram 유사도  
+                phonetic: 0.15,   // 음성적 유사도
+                structural: 0.1,  // 구조적 유사도
+                jamo: 0.1         // 자모 유사도
+            };
+            
+            const finalSim = 
+                semanticSim * weights.semantic +
+                ngramSim * weights.ngram +
+                phoneticSim * weights.phonetic +
+                structuralSim * weights.structural +
+                jamoSim * weights.jamo;
+            
+            // 결과 정규화 (0.1-0.95 범위)
+            return Math.max(0.1, Math.min(0.95, finalSim));
+        }
+
+        // 구조적 유사도 계산
+        function getStructuralSimilarity(word1, word2) {
+            // 1. 길이 유사도
+            const lengthSim = 1 - Math.abs(word1.length - word2.length) / Math.max(word1.length, word2.length, 1);
+            
+            // 2. 공통 문자 비율
             const set1 = new Set(word1);
             const set2 = new Set(word2);
             const intersection = new Set([...set1].filter(x => set2.has(x)));
             const union = new Set([...set1, ...set2]);
             const jaccardSim = union.size > 0 ? intersection.size / union.size : 0;
             
-            // 2. 길이 유사도
-            const lengthSim = 1 - Math.abs(word1.length - word2.length) / Math.max(word1.length, word2.length, 1);
+            // 3. 위치별 문자 매칭
+            let positionMatches = 0;
+            const minLength = Math.min(word1.length, word2.length);
+            for (let i = 0; i < minLength; i++) {
+                if (word1[i] === word2[i]) {
+                    positionMatches++;
+                }
+            }
+            const positionSim = minLength > 0 ? positionMatches / minLength : 0;
             
-            // 3. 의미적 그룹 유사도 (간단한 규칙 기반)
-            const semanticSim = getSemanticSimilarity(word1, word2);
-            
-            // 4. 음성적 유사도 (첫 글자, 끝 글자)
-            const phoneticSim = getPhoneticSimilarity(word1, word2);
-            
-            // 가중 평균 (의미적 유사도를 더 중요하게)
-            const finalSim = semanticSim * 0.5 + jaccardSim * 0.2 + lengthSim * 0.2 + phoneticSim * 0.1;
-            
-            // 결과 정규화 및 약간의 랜덤성 추가
-            return Math.max(0.1, Math.min(0.95, finalSim + Math.random() * 0.05));
+            return (lengthSim * 0.4 + jaccardSim * 0.4 + positionSim * 0.2);
         }
 
-        // 의미적 유사도 계산
+        // 한국어 자모 유사도 계산 (한국어 특화)
+        function getJamoSimilarity(word1, word2) {
+            // 한글 자모 분해 함수
+            const decomposeHangul = (char) => {
+                const code = char.charCodeAt(0) - 0xAC00;
+                if (code < 0 || code > 11171) return [char]; // 한글이 아님
+                
+                const jong = code % 28;
+                const jung = (code - jong) / 28 % 21;
+                const cho = ((code - jong) / 28 - jung) / 21;
+                
+                const choList = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+                const jungList = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+                const jongList = ['','ㄱ','ㄲ','ㄱㅅ','ㄴ','ㄴㅈ','ㄴㅎ','ㄷ','ㄹ','ㄹㄱ','ㄹㅁ','ㄹㅂ','ㄹㅅ','ㄹㅌ','ㄹㅍ','ㄹㅎ','ㅁ','ㅂ','ㅂㅅ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+                
+                return [choList[cho], jungList[jung], jongList[jong]].filter(x => x);
+            };
+            
+            // 두 단어의 자모 분해
+            const jamo1 = word1.split('').flatMap(decomposeHangul);
+            const jamo2 = word2.split('').flatMap(decomposeHangul);
+            
+            // 자모 레벨에서 Jaccard 유사도
+            const set1 = new Set(jamo1);
+            const set2 = new Set(jamo2);
+            const intersection = new Set([...set1].filter(x => set2.has(x)));
+            const union = new Set([...set1, ...set2]);
+            
+            return union.size > 0 ? intersection.size / union.size : 0;
+        }
+
+        // 개선된 의미적 유사도 계산 (ConceptNet, WordNet 방식 참조)
         function getSemanticSimilarity(word1, word2) {
             const semanticGroups = {
-                '동물': ['강아지', '고양이', '토끼', '햄스터', '새', '물고기', '코끼리', '사자', '호랑이', '곰', '개', '닭', '돼지', '소', '말'],
-                '스포츠': ['축구', '야구', '농구', '테니스', '수영', '달리기', '골프', '배드민턴', '탁구', '권투', '운동', '경기'],
-                '음식': ['밥', '빵', '국수', '피자', '햄버거', '치킨', '떡볶이', '김치', '불고기', '냉면', '라면', '과일', '야채'],
-                '학교': ['교실', '선생님', '학생', '책', '연필', '칠판', '시험', '숙제', '공부', '친구', '학교', '교육', '수업'],
-                '가족': ['아빠', '엄마', '형', '누나', '동생', '할머니', '할아버지', '삼촌', '이모', '가족', '부모'],
-                '색깔': ['빨간색', '파란색', '노란색', '초록색', '검은색', '하얀색', '보라색', '주황색', '분홍색'],
-                '감정': ['기쁨', '슬픔', '화남', '사랑', '미움', '두려움', '놀람', '행복', '우울', '즐거움'],
-                '자연': ['나무', '꽃', '산', '바다', '강', '하늘', '구름', '비', '눈', '태양', '달', '별'],
-                '교통': ['자동차', '버스', '지하철', '기차', '비행기', '배', '자전거', '오토바이'],
-                '전자기기': ['컴퓨터', '스마트폰', '텔레비전', '라디오', '냉장고', '세탁기', '에어컨'],
-                '언어학습': ['영어', '한국어', '중국어', '일본어', '단어', '문법', '발음', '번역', '언어', '외국어']
+                '동물': {
+                    primary: ['강아지', '고양이', '토끼', '햄스터', '새', '물고기', '개', '닭', '돼지', '소', '말'],
+                    secondary: ['애완동물', '반려동물', '야생동물', '농장동물', '조류', '포유류']
+                },
+                '스포츠': {
+                    primary: ['축구', '야구', '농구', '테니스', '수영', '달리기', '골프', '배드민턴', '탁구', '권투'],
+                    secondary: ['운동', '경기', '스포츠', '게임', '선수', '경기장', '훈련']
+                },
+                '음식': {
+                    primary: ['밥', '빵', '국수', '피자', '햄버거', '치킨', '떡볶이', '김치', '불고기', '냉면', '라면'],
+                    secondary: ['요리', '음식', '식사', '간식', '디저트', '음료', '재료', '맛']
+                },
+                '학교': {
+                    primary: ['교실', '선생님', '학생', '책', '연필', '칠판', '시험', '숙제', '공부', '친구'],
+                    secondary: ['학교', '교육', '수업', '학습', '지식', '가르치다', '배우다']
+                },
+                '가족': {
+                    primary: ['아빠', '엄마', '형', '누나', '동생', '할머니', '할아버지', '삼촌', '이모'],
+                    secondary: ['가족', '부모', '형제', '자매', '친척', '집', '사랑']
+                },
+                '색깔': {
+                    primary: ['빨간색', '파란색', '노란색', '초록색', '검은색', '하얀색', '보라색', '주황색', '분홍색'],
+                    secondary: ['색깔', '색상', '밝다', '어둡다', '선명하다', '예쁘다']
+                },
+                '감정': {
+                    primary: ['기쁨', '슬픔', '화남', '사랑', '미움', '두려움', '놀람', '행복', '우울', '즐거움'],
+                    secondary: ['감정', '마음', '기분', '느낌', '표정', '웃음', '눈물']
+                },
+                '자연': {
+                    primary: ['나무', '꽃', '산', '바다', '강', '하늘', '구름', '비', '눈', '태양', '달', '별'],
+                    secondary: ['자연', '환경', '날씨', '계절', '아름답다', '깨끗하다']
+                },
+                '교통': {
+                    primary: ['자동차', '버스', '지하철', '기차', '비행기', '배', '자전거', '오토바이'],
+                    secondary: ['교통', '이동', '여행', '길', '도로', '빠르다', '느리다']
+                },
+                '전자기기': {
+                    primary: ['컴퓨터', '스마트폰', '텔레비전', '라디오', '냉장고', '세탁기', '에어컨'],
+                    secondary: ['기계', '전자제품', '기술', '편리하다', '현대', '디지털']
+                },
+                '언어학습': {
+                    primary: ['영어', '한국어', '중국어', '일본어', '단어', '문법', '발음', '번역'],
+                    secondary: ['언어', '외국어', '말하다', '듣다', '읽다', '쓰다', '소통']
+                }
             };
 
-            // 같은 그룹에 속하면 높은 유사도
-            for (const group of Object.values(semanticGroups)) {
-                if (group.includes(word1) && group.includes(word2)) {
-                    return 0.8 + Math.random() * 0.15; // 0.8-0.95
+            // 1. 같은 그룹 primary 단어들 간의 유사도 (매우 높음)
+            for (const [groupName, words] of Object.entries(semanticGroups)) {
+                if (words.primary.includes(word1) && words.primary.includes(word2)) {
+                    return 0.85 + Math.random() * 0.1; // 0.85-0.95
                 }
             }
 
-            // 관련 그룹 간 유사도
-            const relatedGroups = [
-                ['동물', '자연'],
-                ['스포츠', '학교'],  
-                ['음식', '가족'],
-                ['감정', '색깔'],
-                ['교통', '전자기기'],
-                ['학교', '언어학습']
-            ];
+            // 2. primary와 secondary 간의 유사도 (높음)
+            for (const [groupName, words] of Object.entries(semanticGroups)) {
+                if ((words.primary.includes(word1) && words.secondary.includes(word2)) ||
+                    (words.secondary.includes(word1) && words.primary.includes(word2))) {
+                    return 0.65 + Math.random() * 0.15; // 0.65-0.8
+                }
+            }
 
-            for (const [group1, group2] of relatedGroups) {
-                if ((semanticGroups[group1]?.includes(word1) && semanticGroups[group2]?.includes(word2)) ||
-                    (semanticGroups[group2]?.includes(word1) && semanticGroups[group1]?.includes(word2))) {
+            // 3. 같은 그룹 secondary 단어들 간의 유사도 (보통)
+            for (const [groupName, words] of Object.entries(semanticGroups)) {
+                if (words.secondary.includes(word1) && words.secondary.includes(word2)) {
                     return 0.5 + Math.random() * 0.2; // 0.5-0.7
                 }
             }
 
-            return 0.1 + Math.random() * 0.2; // 0.1-0.3
+            // 4. 관련 그룹 간 유사도 (WordNet 계층 구조 방식)
+            const relatedGroups = [
+                ['동물', '자연', '가족'],     // 생명체/관계
+                ['스포츠', '학교', '친구'],   // 활동/사회
+                ['음식', '가족', '집'],       // 일상생활
+                ['감정', '색깔', '예술'],     // 표현/미학
+                ['교통', '전자기기', '기술'], // 도구/기술
+                ['학교', '언어학습', '지식']  // 교육/학습
+            ];
+
+            for (const groupSet of relatedGroups) {
+                let group1 = null, group2 = null;
+                
+                for (const groupName of groupSet) {
+                    if (semanticGroups[groupName]) {
+                        if (semanticGroups[groupName].primary.includes(word1) || 
+                            semanticGroups[groupName].secondary.includes(word1)) {
+                            group1 = groupName;
+                        }
+                        if (semanticGroups[groupName].primary.includes(word2) || 
+                            semanticGroups[groupName].secondary.includes(word2)) {
+                            group2 = groupName;
+                        }
+                    }
+                }
+                
+                if (group1 && group2 && group1 !== group2 && groupSet.includes(group1) && groupSet.includes(group2)) {
+                    return 0.35 + Math.random() * 0.15; // 0.35-0.5
+                }
+            }
+
+            // 5. n-gram 유사도 (FastText 방식 참조)
+            const ngramSim = calculateNgramSimilarity(word1, word2);
+            if (ngramSim > 0.3) {
+                return 0.2 + ngramSim * 0.3; // 0.2-0.5
+            }
+
+            return 0.1 + Math.random() * 0.15; // 0.1-0.25
+        }
+
+        // FastText 방식의 n-gram 유사도 계산
+        function calculateNgramSimilarity(word1, word2) {
+            // 2-gram, 3-gram 생성
+            const getGrams = (word, n) => {
+                const grams = [];
+                for (let i = 0; i <= word.length - n; i++) {
+                    grams.push(word.substring(i, i + n));
+                }
+                return grams;
+            };
+
+            const grams1_2 = getGrams(word1, 2);
+            const grams1_3 = getGrams(word1, 3);
+            const grams2_2 = getGrams(word2, 2);
+            const grams2_3 = getGrams(word2, 3);
+
+            // Jaccard 유사도 계산
+            const jaccard = (set1, set2) => {
+                const intersection = set1.filter(x => set2.includes(x));
+                const union = [...new Set([...set1, ...set2])];
+                return union.length > 0 ? intersection.length / union.length : 0;
+            };
+
+            const sim2 = jaccard(grams1_2, grams2_2);
+            const sim3 = jaccard(grams1_3, grams2_3);
+            
+            return (sim2 * 0.4 + sim3 * 0.6); // 3-gram에 더 높은 가중치
         }
 
         // 음성적 유사도
@@ -1677,17 +1923,35 @@
             `;
         }
 
-        // 통계 업데이트
+        // 개선된 통계 업데이트 (연결 분포 포함)
         function updateStats() {
             const totalCount = Array.from(words.values()).reduce((sum, data) => sum + data.count, 0);
             const connectionCount = edges.length;
-            const connectivity = words.size > 0 ? Math.round((connectionCount / Math.max(words.size - 1, 1)) * 100) : 0;
+            
+            // 연결 분포 계산
+            const connectionDist = new Map();
+            Array.from(words.keys()).forEach(word => connectionDist.set(word, 0));
+            
+            edges.forEach(edge => {
+                const edgeData = edges.get(edge.id);
+                if (edgeData) {
+                    connectionDist.set(edgeData.from, connectionDist.get(edgeData.from) + 1);
+                    connectionDist.set(edgeData.to, connectionDist.get(edgeData.to) + 1);
+                }
+            });
+            
+            const connectionCounts = Array.from(connectionDist.values());
+            const avgConnections = connectionCounts.length > 0 ? connectionCounts.reduce((a, b) => a + b, 0) / connectionCounts.length : 0;
+            const isolatedNodes = connectionCounts.filter(count => count === 0).length;
+            
+            // 연결성 계산 (외톨이 없으면 100%, 있으면 감소)
+            const connectivity = words.size > 0 ? Math.round(((words.size - isolatedNodes) / words.size) * 100) : 0;
             
             document.getElementById('totalWords').textContent = totalCount;
             document.getElementById('uniqueWords').textContent = words.size;
             document.getElementById('totalClusters').textContent = new Set(Array.from(words.values()).map(d => d.cluster).filter(c => c !== -1)).size;
-            document.getElementById('connectivity').textContent = connectivity + '%';
-            document.getElementById('silhouetteScore').textContent = silhouetteScore > 0 ? silhouetteScore.toFixed(3) : '-';
+            document.getElementById('connectivity').textContent = `${connectivity}% (${isolatedNodes}개 외톨이)`;
+            document.getElementById('silhouetteScore').textContent = silhouetteScore > 0 ? silhouetteScore.toFixed(3) : avgConnections.toFixed(1) + '개/노드';
         }
 
         // 단어 목록 업데이트
@@ -1866,23 +2130,39 @@
             // 큐 디스플레이 주기적 업데이트
             setInterval(updateQueueDisplay, 2000);
             
-            // 샘플 데이터 추가 (더 다양한 단어로)
+            // 개선된 샘플 데이터 (다양한 카테고리로 연결 테스트)
             setTimeout(() => {
-                const sampleWords = ['강아지', '고양이', '축구', '야구', '사과', '바나나', '학교', '친구'];
+                const sampleWords = [
+                    '강아지', '고양이', '토끼',        // 동물 그룹
+                    '축구', '야구', '농구',           // 스포츠 그룹  
+                    '사과', '바나나', '오렌지',       // 과일 그룹
+                    '학교', '선생님', '학생',         // 교육 그룹
+                    '빨간색', '파란색', '노란색',     // 색깔 그룹
+                    '행복', '기쁨', '슬픔'           // 감정 그룹
+                ];
                 let delay = 1000;
-                sampleWords.forEach(word => {
-                    setTimeout(() => addWordToGraph(word), delay);
-                    delay += 1500; // 조금 더 빠르게
+                sampleWords.forEach((word, index) => {
+                    setTimeout(() => {
+                        addWordToGraph(word);
+                        // 중간중간 연결 상태 확인
+                        if (index === 8) { // 9번째 단어 후
+                            setTimeout(() => {
+                                updateAIStatus('🔄 중간 연결 분석 시작...');
+                                updateAllConnections();
+                            }, 1000);
+                        }
+                    }, delay);
+                    delay += 1200; // 조금 더 빠르게
                 });
             }, 2000);
             
-            // 연결 재분석 버튼에 추가 기능 (단어가 충분히 추가된 후)
+            // 최종 네트워크 최적화 (모든 샘플 데이터 로딩 후)
             setTimeout(() => {
-                if (words.size >= 4) {
-                    console.log('초기 최적 연결 분석 시작');
+                if (words.size >= 10) {
+                    console.log('최종 네트워크 최적화 시작');
                     updateAllConnections();
                 }
-            }, 12000); // 12초 후 자동으로 최적 연결 분석
+            }, 25000); // 25초 후 최종 최적화
         });
     </script>
 </body>
